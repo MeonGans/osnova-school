@@ -1,0 +1,51 @@
+navItems: [
+{
+id: 1,
+name: 'Новости',
+type: 'page',
+link: '/',
+isUndeletable: true,
+},
+{
+id: 5,
+name: 'Контакты',
+type: 'page',
+link: '/contacts',
+isUndeletable: true,
+},
+{
+id: 15,
+name: 'Страницы',
+type: 'folder',
+items: [
+{
+id: 20,
+name: 'Папки',
+type: 'folder',
+items: [],
+},
+{
+id: 21,
+name: 'Лолы',
+type: 'folder',
+items: [],
+},
+{
+id: 16,
+name: 'October : pdf',
+type: 'page',
+link: 'https://google.com',
+},
+{
+id: 17,
+name: 'November : pdf',
+type: 'page',
+},
+{
+id: 18,
+name: 'Tutorial : html',
+type: 'page',
+},
+],
+},
+],
