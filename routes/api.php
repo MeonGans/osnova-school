@@ -19,7 +19,9 @@ use Illuminate\Support\Facades\Route;
 //    return $request->user();
 //});
 
-
+Route::get('/', function () {
+    return response()->json(['status' => 'ok']);
+});
 Route::get('news', [\App\Http\Controllers\NewsController::class, 'index'])->name('news.index');
 Route::get('news/{id}', [\App\Http\Controllers\NewsController::class, 'show'])->name('news.show');
 
