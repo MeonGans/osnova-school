@@ -79,3 +79,4 @@ class LinkController extends Controller
         return $this->sendResponse($link, 'Link delete successfully.');
     }
 }
+
