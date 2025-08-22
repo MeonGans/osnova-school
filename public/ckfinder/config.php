@@ -169,7 +169,7 @@ $config['sessionWriteClose'] = true;
 /*================================= CSRF protection ===================================*/
 // https://ckeditor.com/docs/ckfinder/ckfinder3-php/configuration.html#configuration_options_csrfProtection
 
-$config['csrfProtection'] = true;
+$config['csrfProtection'] = false;
 
 /*===================================== Headers =======================================*/
 // https://ckeditor.com/docs/ckfinder/ckfinder3-php/configuration.html#configuration_options_headers
