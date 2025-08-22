@@ -14,9 +14,8 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
 ini_set('display_errors', 0);
 
 // Development
- error_reporting(E_ALL);
- ini_set('display_errors', 1);
-$config['debug'] = true;
+// error_reporting(E_ALL);
+// ini_set('display_errors', 1);
 /*============================ General Settings =======================================*/
 // https://ckeditor.com/docs/ckfinder/ckfinder3-php/configuration.html
 
