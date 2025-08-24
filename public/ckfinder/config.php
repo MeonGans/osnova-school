@@ -31,8 +31,8 @@ $config['authentication'] = function () {
 /*============================ License Key ============================================*/
 // https://ckeditor.com/docs/ckfinder/ckfinder3-php/configuration.html#configuration_options_licenseKey
 
-$config['licenseName'] = '';
-$config['licenseKey']  = '';
+$config['licenseName'] = 'api.osnova.school';
+$config['licenseKey']  = '*M?P-*1**-3**U-*4**-*1**-H*L*-2**C';
 
 /*============================ CKFinder Internal Directory ============================*/
 // https://ckeditor.com/docs/ckfinder/ckfinder3-php/configuration.html#configuration_options_privateDir
