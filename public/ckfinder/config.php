@@ -173,8 +173,13 @@ $config['csrfProtection'] = false;
 /*===================================== Headers =======================================*/
 // https://ckeditor.com/docs/ckfinder/ckfinder3-php/configuration.html#configuration_options_headers
 
-$config['headers'] = array();
-
+//$config['headers'] = array();
+$config['headers'] = [
+    'Access-Control-Allow-Origin' => 'https://osnova.school',
+    'Access-Control-Allow-Methods' => 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers' => 'Content-Type, X-Requested-With, X-CSRF-Token',
+    'Access-Control-Allow-Credentials' => 'true',
+];
 /*============================== End of Configuration =================================*/
 
 // Config must be returned - do not change it.
