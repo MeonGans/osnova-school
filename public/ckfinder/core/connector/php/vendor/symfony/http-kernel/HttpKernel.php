@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Exception\RequestExceptionInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolverInterface;
 use Symfony\Component\HttpKernel\Controller\ControllerResolverInterface;
@@ -33,7 +34,6 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 // Help opcache.preload discover always-needed symbols
-class_exists(LegacyEventDispatcherProxy::class);
 class_exists(ControllerArgumentsEvent::class);
 class_exists(ControllerEvent::class);
 class_exists(ExceptionEvent::class);
@@ -51,33 +51,34 @@ class_exists(KernelEvents::class);
  */
 class HttpKernel implements HttpKernelInterface, TerminableInterface
 {
-    protected $dispatcher;
-    protected $resolver;
-    protected $requestStack;
-    private $argumentResolver;
+    protected EventDispatcherInterface $dispatcher;
+    protected ControllerResolverInterface $resolver;
+    protected RequestStack $requestStack;
+    private ArgumentResolverInterface $argumentResolver;
+    private bool $handleAllThrowables;
 
-    public function __construct(EventDispatcherInterface $dispatcher, ControllerResolverInterface $resolver, RequestStack $requestStack = null, ArgumentResolverInterface $argumentResolver = null)
+    public function __construct(EventDispatcherInterface $dispatcher, ControllerResolverInterface $resolver, ?RequestStack $requestStack = null, ?ArgumentResolverInterface $argumentResolver = null, bool $handleAllThrowables = false)
     {
         $this->dispatcher = $dispatcher;
         $this->resolver = $resolver;
         $this->requestStack = $requestStack ?? new RequestStack();
-        $this->argumentResolver = $argumentResolver;
-
-        if (null === $this->argumentResolver) {
-            $this->argumentResolver = new ArgumentResolver();
-        }
+        $this->argumentResolver = $argumentResolver ?? new ArgumentResolver();
+        $this->handleAllThrowables = $handleAllThrowables;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function handle(Request $request, int $type = HttpKernelInterface::MAIN_REQUEST, bool $catch = true)
+    public function handle(Request $request, int $type = HttpKernelInterface::MAIN_REQUEST, bool $catch = true): Response
     {
         $request->headers->set('X-Php-Ob-Level', (string) ob_get_level());
 
+        $this->requestStack->push($request);
+        $response = null;
         try {
-            return $this->handleRaw($request, $type);
-        } catch (\Exception $e) {
+            return $response = $this->handleRaw($request, $type);
+        } catch (\Throwable $e) {
+            if ($e instanceof \Error && !$this->handleAllThrowables) {
+                throw $e;
+            }
+
             if ($e instanceof RequestExceptionInterface) {
                 $e = new BadRequestHttpException($e->getMessage(), $e);
             }
@@ -87,14 +88,26 @@ class HttpKernel implements HttpKernelInterface, TerminableInterface
                 throw $e;
             }
 
-            return $this->handleThrowable($e, $request, $type);
+            return $response = $this->handleThrowable($e, $request, $type);
+        } finally {
+            $this->requestStack->pop();
+
+            if ($response instanceof StreamedResponse && $callback = $response->getCallback()) {
+                $requestStack = $this->requestStack;
+
+                $response->setCallback(static function () use ($request, $callback, $requestStack) {
+                    $requestStack->push($request);
+                    try {
+                        $callback();
+                    } finally {
+                        $requestStack->pop();
+                    }
+                });
+            }
         }
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function terminate(Request $request, Response $response)
+    public function terminate(Request $request, Response $response): void
     {
         $this->dispatcher->dispatch(new TerminateEvent($this, $request, $response), KernelEvents::TERMINATE);
     }
@@ -102,13 +115,23 @@ class HttpKernel implements HttpKernelInterface, TerminableInterface
     /**
      * @internal
      */
-    public function terminateWithException(\Throwable $exception, Request $request = null)
+    public function terminateWithException(\Throwable $exception, ?Request $request = null): void
     {
-        if (!$request = $request ?: $this->requestStack->getMainRequest()) {
+        if (!$request ??= $this->requestStack->getMainRequest()) {
             throw $exception;
         }
 
-        $response = $this->handleThrowable($exception, $request, self::MAIN_REQUEST);
+        if ($pop = $request !== $this->requestStack->getMainRequest()) {
+            $this->requestStack->push($request);
+        }
+
+        try {
+            $response = $this->handleThrowable($exception, $request, self::MAIN_REQUEST);
+        } finally {
+            if ($pop) {
+                $this->requestStack->pop();
+            }
+        }
 
         $response->sendHeaders();
         $response->sendContent();
@@ -126,8 +149,6 @@ class HttpKernel implements HttpKernelInterface, TerminableInterface
      */
     private function handleRaw(Request $request, int $type = self::MAIN_REQUEST): Response
     {
-        $this->requestStack->push($request);
-
         // request
         $event = new RequestEvent($this, $request, $type);
         $this->dispatcher->dispatch($event, KernelEvents::REQUEST);
@@ -146,9 +167,9 @@ class HttpKernel implements HttpKernelInterface, TerminableInterface
         $controller = $event->getController();
 
         // controller arguments
-        $arguments = $this->argumentResolver->getArguments($request, $controller);
+        $arguments = $this->argumentResolver->getArguments($request, $controller, $event->getControllerReflector());
 
-        $event = new ControllerArgumentsEvent($this, $controller, $arguments, $request, $type);
+        $event = new ControllerArgumentsEvent($this, $event, $arguments, $request, $type);
         $this->dispatcher->dispatch($event, KernelEvents::CONTROLLER_ARGUMENTS);
         $controller = $event->getController();
         $arguments = $event->getArguments();
@@ -158,7 +179,7 @@ class HttpKernel implements HttpKernelInterface, TerminableInterface
 
         // view
         if (!$response instanceof Response) {
-            $event = new ViewEvent($this, $request, $type, $response);
+            $event = new ViewEvent($this, $request, $type, $response, $event);
             $this->dispatcher->dispatch($event, KernelEvents::VIEW);
 
             if ($event->hasResponse()) {
@@ -201,16 +222,13 @@ class HttpKernel implements HttpKernelInterface, TerminableInterface
      * operations such as {@link RequestStack::getParentRequest()} can lead to
      * weird results.
      */
-    private function finishRequest(Request $request, int $type)
+    private function finishRequest(Request $request, int $type): void
     {
         $this->dispatcher->dispatch(new FinishRequestEvent($this, $request, $type), KernelEvents::FINISH_REQUEST);
-        $this->requestStack->pop();
     }
 
     /**
      * Handles a throwable by trying to convert it to a Response.
-     *
-     * @throws \Exception
      */
     private function handleThrowable(\Throwable $e, Request $request, int $type): Response
     {
@@ -242,7 +260,11 @@ class HttpKernel implements HttpKernelInterface, TerminableInterface
 
         try {
             return $this->filterResponse($response, $request, $type);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            if ($e instanceof \Error && !$this->handleAllThrowables) {
+                throw $e;
+            }
+
             return $response;
         }
     }
@@ -250,10 +272,10 @@ class HttpKernel implements HttpKernelInterface, TerminableInterface
     /**
      * Returns a human-readable string for the specified variable.
      */
-    private function varToString($var): string
+    private function varToString(mixed $var): string
     {
         if (\is_object($var)) {
-            return sprintf('an object of type %s', \get_class($var));
+            return sprintf('an object of type %s', $var::class);
         }
 
         if (\is_array($var)) {
