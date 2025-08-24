@@ -22,6 +22,8 @@ use PhpCsFixer\FixerConfiguration\FixerOptionBuilder;
 use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
+use PhpCsFixer\FixerDefinition\VersionSpecification;
+use PhpCsFixer\FixerDefinition\VersionSpecificCodeSample;
 use PhpCsFixer\Tokenizer\CT;
 use PhpCsFixer\Tokenizer\Tokens;
 use PhpCsFixer\Tokenizer\TokensAnalyzer;
@@ -47,11 +49,17 @@ final class FunctionDeclarationFixer extends AbstractFixer implements Configurab
 
     private string $singleLineWhitespaceOptions = " \t";
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isAnyTokenKindsFound([T_FUNCTION, T_FN]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -80,10 +88,11 @@ $f = function () {};
 ',
                     ['closure_function_spacing' => self::SPACING_NONE]
                 ),
-                new CodeSample(
+                new VersionSpecificCodeSample(
                     '<?php
 $f = fn () => null;
 ',
+                    new VersionSpecification(70400),
                     ['closure_fn_spacing' => self::SPACING_NONE]
                 ),
             ]
@@ -94,13 +103,16 @@ $f = fn () => null;
      * {@inheritdoc}
      *
      * Must run before MethodArgumentSpaceFixer.
-     * Must run after SingleSpaceAfterConstructFixer, SingleSpaceAroundConstructFixer, UseArrowFunctionsFixer.
+     * Must run after SingleSpaceAfterConstructFixer.
      */
     public function getPriority(): int
     {
         return 31;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $tokensAnalyzer = new TokensAnalyzer($tokens);
@@ -209,6 +221,9 @@ $f = fn () => null;
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([

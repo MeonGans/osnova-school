@@ -14,8 +14,7 @@ declare(strict_types=1);
 
 namespace PhpCsFixer\Fixer\Whitespace;
 
-use PhpCsFixer\AbstractProxyFixer;
-use PhpCsFixer\Fixer\DeprecatedFixerInterface;
+use PhpCsFixer\AbstractFixer;
 use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
@@ -26,11 +25,12 @@ use PhpCsFixer\Tokenizer\Tokens;
  *
  * @author Marc Aubé
  * @author Dariusz Rumiński <dariusz.ruminski@gmail.com>
- *
- * @deprecated in favor of SpacesInsideParenthesisFixer
  */
-final class NoSpacesInsideParenthesisFixer extends AbstractProxyFixer implements DeprecatedFixerInterface
+final class NoSpacesInsideParenthesisFixer extends AbstractFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -55,21 +55,57 @@ function foo( \$bar, \$baz )
      */
     public function getPriority(): int
     {
-        return 3;
+        return 2;
     }
 
-    public function getSuccessorsNames(): array
-    {
-        return array_keys($this->proxyFixers);
-    }
-
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound('(');
     }
 
-    protected function createProxyFixers(): array
+    /**
+     * {@inheritdoc}
+     */
+    protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
-        return [new SpacesInsideParenthesesFixer()];
+        foreach ($tokens as $index => $token) {
+            if (!$token->equals('(')) {
+                continue;
+            }
+
+            $prevIndex = $tokens->getPrevMeaningfulToken($index);
+
+            // ignore parenthesis for T_ARRAY
+            if (null !== $prevIndex && $tokens[$prevIndex]->isGivenKind(T_ARRAY)) {
+                continue;
+            }
+
+            $endIndex = $tokens->findBlockEnd(Tokens::BLOCK_TYPE_PARENTHESIS_BRACE, $index);
+
+            // remove space after opening `(`
+            if (!$tokens[$tokens->getNextNonWhitespace($index)]->isComment()) {
+                $this->removeSpaceAroundToken($tokens, $index + 1);
+            }
+
+            // remove space before closing `)` if it is not `list($a, $b, )` case
+            if (!$tokens[$tokens->getPrevMeaningfulToken($endIndex)]->equals(',')) {
+                $this->removeSpaceAroundToken($tokens, $endIndex - 1);
+            }
+        }
+    }
+
+    /**
+     * Remove spaces from token at a given index.
+     */
+    private function removeSpaceAroundToken(Tokens $tokens, int $index): void
+    {
+        $token = $tokens[$index];
+
+        if ($token->isWhitespace() && !str_contains($token->getContent(), "\n")) {
+            $tokens->clearAt($index);
+        }
     }
 }

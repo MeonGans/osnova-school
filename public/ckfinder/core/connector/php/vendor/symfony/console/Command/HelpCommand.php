@@ -27,15 +27,22 @@ class HelpCommand extends Command
 {
     private Command $command;
 
-    protected function configure(): void
+    /**
+     * {@inheritdoc}
+     */
+    protected function configure()
     {
         $this->ignoreValidationErrors();
 
         $this
             ->setName('help')
             ->setDefinition([
-                new InputArgument('command_name', InputArgument::OPTIONAL, 'The command name', 'help', fn () => array_keys((new ApplicationDescription($this->getApplication()))->getCommands())),
-                new InputOption('format', null, InputOption::VALUE_REQUIRED, 'The output format (txt, xml, json, or md)', 'txt', fn () => (new DescriptorHelper())->getFormats()),
+                new InputArgument('command_name', InputArgument::OPTIONAL, 'The command name', 'help', function () {
+                    return array_keys((new ApplicationDescription($this->getApplication()))->getCommands());
+                }),
+                new InputOption('format', null, InputOption::VALUE_REQUIRED, 'The output format (txt, xml, json, or md)', 'txt', function () {
+                    return (new DescriptorHelper())->getFormats();
+                }),
                 new InputOption('raw', null, InputOption::VALUE_NONE, 'To output raw command help'),
             ])
             ->setDescription('Display help for a command')
@@ -54,11 +61,14 @@ EOF
         ;
     }
 
-    public function setCommand(Command $command): void
+    public function setCommand(Command $command)
     {
         $this->command = $command;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $this->command ??= $this->getApplication()->find($input->getArgument('command_name'));

@@ -147,15 +147,11 @@ final class ArgumentsAnalyzer
             }
         }
 
-        if (null === $info['name']) {
-            $info['type'] = null;
-        }
-
         return new ArgumentAnalysis(
             $info['name'],
             $info['name_index'],
             $info['default'],
-            null !== $info['type'] ? new TypeAnalysis($info['type'], $info['type_index_start'], $info['type_index_end']) : null
+            $info['type'] ? new TypeAnalysis($info['type'], $info['type_index_start'], $info['type_index_end']) : null
         );
     }
 }

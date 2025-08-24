@@ -32,7 +32,5 @@ interface ToolInfoInterface
 
     public function isInstalledByComposer(): bool;
 
-    public function isRunInsideDocker(): bool;
-
     public function getPharDownloadUri(string $version): string;
 }

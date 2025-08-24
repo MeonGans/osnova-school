@@ -14,9 +14,8 @@ declare(strict_types=1);
 
 namespace PhpCsFixer\Fixer\LanguageConstruct;
 
-use PhpCsFixer\AbstractProxyFixer;
+use PhpCsFixer\AbstractFixer;
 use PhpCsFixer\Fixer\ConfigurableFixerInterface;
-use PhpCsFixer\Fixer\DeprecatedFixerInterface;
 use PhpCsFixer\FixerConfiguration\AllowedValueSubset;
 use PhpCsFixer\FixerConfiguration\FixerConfigurationResolver;
 use PhpCsFixer\FixerConfiguration\FixerConfigurationResolverInterface;
@@ -24,14 +23,15 @@ use PhpCsFixer\FixerConfiguration\FixerOptionBuilder;
 use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
+use PhpCsFixer\Preg;
 use PhpCsFixer\Tokenizer\CT;
+use PhpCsFixer\Tokenizer\Token;
+use PhpCsFixer\Tokenizer\Tokens;
 
 /**
  * @author Andreas Möller <am@localheinz.com>
- *
- * @deprecated
  */
-final class SingleSpaceAfterConstructFixer extends AbstractProxyFixer implements ConfigurableFixerInterface, DeprecatedFixerInterface
+final class SingleSpaceAfterConstructFixer extends AbstractFixer implements ConfigurableFixerInterface
 {
     /**
      * @var array<string, null|int>
@@ -100,33 +100,54 @@ final class SingleSpaceAfterConstructFixer extends AbstractProxyFixer implements
         'yield_from' => T_YIELD_FROM,
     ];
 
-    private SingleSpaceAroundConstructFixer $singleSpaceAroundConstructFixer;
+    /**
+     * @var array<string, int>
+     */
+    private array $fixTokenMap = [];
 
-    public function __construct()
-    {
-        $this->singleSpaceAroundConstructFixer = new SingleSpaceAroundConstructFixer();
-
-        parent::__construct();
-    }
-
-    public function getSuccessorsNames(): array
-    {
-        return array_keys($this->proxyFixers);
-    }
-
+    /**
+     * {@inheritdoc}
+     */
     public function configure(array $configuration): void
     {
         parent::configure($configuration);
 
-        $this->singleSpaceAroundConstructFixer->configure([
-            'constructs_contain_a_single_space' => [
-                'yield_from',
-            ],
-            'constructs_preceded_by_a_single_space' => [],
-            'constructs_followed_by_a_single_space' => $this->configuration['constructs'],
-        ]);
+        if (\defined('T_MATCH')) { // @TODO: drop condition when PHP 8.0+ is required
+            self::$tokenMap['match'] = T_MATCH;
+        }
+
+        if (\defined('T_READONLY')) { // @TODO: drop condition when PHP 8.1+ is required
+            self::$tokenMap['readonly'] = T_READONLY;
+        }
+
+        if (\defined('T_ENUM')) { // @TODO: drop condition when PHP 8.1+ is required
+            self::$tokenMap['enum'] = T_ENUM;
+        }
+
+        $this->fixTokenMap = [];
+
+        foreach ($this->configuration['constructs'] as $key) {
+            if (null !== self::$tokenMap[$key]) {
+                $this->fixTokenMap[$key] = self::$tokenMap[$key];
+            }
+        }
+
+        if (isset($this->fixTokenMap['public'])) {
+            $this->fixTokenMap['constructor_public'] = CT::T_CONSTRUCTOR_PROPERTY_PROMOTION_PUBLIC;
+        }
+
+        if (isset($this->fixTokenMap['protected'])) {
+            $this->fixTokenMap['constructor_protected'] = CT::T_CONSTRUCTOR_PROPERTY_PROMOTION_PROTECTED;
+        }
+
+        if (isset($this->fixTokenMap['private'])) {
+            $this->fixTokenMap['constructor_private'] = CT::T_CONSTRUCTOR_PROPERTY_PROMOTION_PRIVATE;
+        }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -168,16 +189,91 @@ yield  from  baz();
      * {@inheritdoc}
      *
      * Must run before BracesFixer, FunctionDeclarationFixer.
-     * Must run after ArraySyntaxFixer, ModernizeStrposFixer.
+     * Must run after ModernizeStrposFixer.
      */
     public function getPriority(): int
     {
-        return parent::getPriority();
+        return 36;
     }
 
-    protected function createProxyFixers(): array
+    /**
+     * {@inheritdoc}
+     */
+    public function isCandidate(Tokens $tokens): bool
     {
-        return [$this->singleSpaceAroundConstructFixer];
+        return $tokens->isAnyTokenKindsFound(array_values($this->fixTokenMap)) && !$tokens->hasAlternativeSyntax();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
+    {
+        $tokenKinds = array_values($this->fixTokenMap);
+
+        for ($index = $tokens->count() - 2; $index >= 0; --$index) {
+            $token = $tokens[$index];
+
+            if (!$token->isGivenKind($tokenKinds)) {
+                continue;
+            }
+
+            $whitespaceTokenIndex = $index + 1;
+
+            if ($tokens[$whitespaceTokenIndex]->equalsAny([',', ';', ')', [CT::T_ARRAY_SQUARE_BRACE_CLOSE], [CT::T_DESTRUCTURING_SQUARE_BRACE_CLOSE]])) {
+                continue;
+            }
+
+            if (
+                $token->isGivenKind(T_STATIC)
+                && !$tokens[$tokens->getNextMeaningfulToken($index)]->isGivenKind([T_FUNCTION, T_VARIABLE])
+            ) {
+                continue;
+            }
+
+            if ($token->isGivenKind(T_OPEN_TAG)) {
+                if ($tokens[$whitespaceTokenIndex]->equals([T_WHITESPACE]) && !str_contains($tokens[$whitespaceTokenIndex]->getContent(), "\n") && !str_contains($token->getContent(), "\n")) {
+                    $tokens->clearAt($whitespaceTokenIndex);
+                }
+
+                continue;
+            }
+
+            if ($token->isGivenKind(T_CLASS) && $tokens[$tokens->getNextMeaningfulToken($index)]->equals('(')) {
+                continue;
+            }
+
+            if ($token->isGivenKind([T_EXTENDS, T_IMPLEMENTS]) && $this->isMultilineExtendsOrImplementsWithMoreThanOneAncestor($tokens, $index)) {
+                continue;
+            }
+
+            if ($token->isGivenKind(T_RETURN) && $this->isMultiLineReturn($tokens, $index)) {
+                continue;
+            }
+
+            if ($token->isGivenKind(T_CONST) && $this->isMultilineConstant($tokens, $index)) {
+                continue;
+            }
+
+            if ($token->isComment() || $token->isGivenKind(CT::T_ATTRIBUTE_CLOSE)) {
+                if ($tokens[$whitespaceTokenIndex]->equals([T_WHITESPACE]) && str_contains($tokens[$whitespaceTokenIndex]->getContent(), "\n")) {
+                    continue;
+                }
+            }
+
+            $tokens->ensureWhitespaceAtIndex($whitespaceTokenIndex, 0, ' ');
+
+            if (
+                $token->isGivenKind(T_YIELD_FROM)
+                && 'yield from' !== strtolower($token->getContent())
+            ) {
+                $tokens[$index] = new Token([T_YIELD_FROM, Preg::replace(
+                    '/\s+/',
+                    ' ',
+                    $token->getContent()
+                )]);
+            }
+        }
     }
 
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
@@ -194,5 +290,69 @@ yield  from  baz();
                 ->setDefault(array_keys($defaults))
                 ->getOption(),
         ]);
+    }
+
+    private function isMultiLineReturn(Tokens $tokens, int $index): bool
+    {
+        ++$index;
+        $tokenFollowingReturn = $tokens[$index];
+
+        if (
+            !$tokenFollowingReturn->isGivenKind(T_WHITESPACE)
+            || !str_contains($tokenFollowingReturn->getContent(), "\n")
+        ) {
+            return false;
+        }
+
+        $nestedCount = 0;
+
+        for ($indexEnd = \count($tokens) - 1, ++$index; $index < $indexEnd; ++$index) {
+            if (str_contains($tokens[$index]->getContent(), "\n")) {
+                return true;
+            }
+
+            if ($tokens[$index]->equals('{')) {
+                ++$nestedCount;
+            } elseif ($tokens[$index]->equals('}')) {
+                --$nestedCount;
+            } elseif (0 === $nestedCount && $tokens[$index]->equalsAny([';', [T_CLOSE_TAG]])) {
+                break;
+            }
+        }
+
+        return false;
+    }
+
+    private function isMultilineExtendsOrImplementsWithMoreThanOneAncestor(Tokens $tokens, int $index): bool
+    {
+        $hasMoreThanOneAncestor = false;
+
+        while (++$index) {
+            $token = $tokens[$index];
+
+            if ($token->equals(',')) {
+                $hasMoreThanOneAncestor = true;
+
+                continue;
+            }
+
+            if ($token->equals('{')) {
+                return false;
+            }
+
+            if ($hasMoreThanOneAncestor && str_contains($token->getContent(), "\n")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isMultilineConstant(Tokens $tokens, int $index): bool
+    {
+        $scopeEnd = $tokens->getNextTokenOfKind($index, [';', [T_CLOSE_TAG]]) - 1;
+        $hasMoreThanOneConstant = null !== $tokens->findSequence([new Token(',')], $index + 1, $scopeEnd);
+
+        return $hasMoreThanOneConstant && $tokens->isPartialCodeMultiline($index, $scopeEnd);
     }
 }

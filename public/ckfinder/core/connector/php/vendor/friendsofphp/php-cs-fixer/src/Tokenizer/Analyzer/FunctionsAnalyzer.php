@@ -54,10 +54,7 @@ final class FunctionsAnalyzer
             $prevIndex = $tokens->getPrevMeaningfulToken($prevIndex);
         }
 
-        $possibleKind = [
-            T_DOUBLE_COLON, T_FUNCTION, CT::T_NAMESPACE_OPERATOR, T_NEW, CT::T_RETURN_REF, T_STRING,
-            ...Token::getObjectOperatorKinds(),
-        ];
+        $possibleKind = array_merge([T_DOUBLE_COLON, T_FUNCTION, CT::T_NAMESPACE_OPERATOR, T_NEW, CT::T_RETURN_REF, T_STRING], Token::getObjectOperatorKinds());
 
         // @TODO: drop condition when PHP 8.0+ is required
         if (\defined('T_ATTRIBUTE')) {
@@ -68,12 +65,12 @@ final class FunctionsAnalyzer
             return false;
         }
 
-        if ($tokens[$tokens->getNextMeaningfulToken($nextIndex)]->isGivenKind(CT::T_FIRST_CLASS_CALLABLE)) {
-            return false;
-        }
-
         if ($previousIsNamespaceSeparator) {
             return true;
+        }
+
+        if ($tokens[$tokens->getNextMeaningfulToken($nextIndex)]->isGivenKind(CT::T_FIRST_CLASS_CALLABLE)) {
+            return false;
         }
 
         if ($tokens->isChanged() || $tokens->getCodeHash() !== $this->functionsAnalysis['tokens']) {
@@ -81,11 +78,14 @@ final class FunctionsAnalyzer
         }
 
         // figure out in which namespace we are
+        $namespaceAnalyzer = new NamespacesAnalyzer();
+
+        $declarations = $namespaceAnalyzer->getDeclarations($tokens);
         $scopeStartIndex = 0;
         $scopeEndIndex = \count($tokens) - 1;
         $inGlobalNamespace = false;
 
-        foreach ($tokens->getNamespaceDeclarations() as $declaration) {
+        foreach ($declarations as $declaration) {
             $scopeStartIndex = $declaration->getScopeStartIndex();
             $scopeEndIndex = $declaration->getScopeEndIndex();
 
@@ -184,7 +184,7 @@ final class FunctionsAnalyzer
     public function isTheSameClassCall(Tokens $tokens, int $index): bool
     {
         if (!$tokens->offsetExists($index)) {
-            throw new \InvalidArgumentException(sprintf('Token index %d does not exist.', $index));
+            return false;
         }
 
         $operatorIndex = $tokens->getPrevMeaningfulToken($index);
@@ -203,11 +203,7 @@ final class FunctionsAnalyzer
             return false;
         }
 
-        if (!$tokens[$referenceIndex]->equalsAny([[T_VARIABLE, '$this'], [T_STRING, 'self'], [T_STATIC, 'static']], false)) {
-            return false;
-        }
-
-        return $tokens[$tokens->getNextMeaningfulToken($index)]->equals('(');
+        return $tokens[$referenceIndex]->equalsAny([[T_VARIABLE, '$this'], [T_STRING, 'self'], [T_STATIC, 'static']], false);
     }
 
     private function buildFunctionsAnalysis(Tokens $tokens): void

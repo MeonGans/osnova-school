@@ -27,16 +27,25 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class TokenizerLinter implements LinterInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function isAsync(): bool
     {
         return false;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function lintFile(string $path): LintingResultInterface
     {
         return $this->lintSource(FileReader::createSingleton()->read($path));
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function lintSource(string $source): LintingResultInterface
     {
         try {
@@ -49,7 +58,7 @@ final class TokenizerLinter implements LinterInterface
             Tokens::fromCode($source);
 
             return new TokenizerLintingResult();
-        } catch (\CompileError|\ParseError $e) {
+        } catch (\ParseError|\CompileError $e) {
             return new TokenizerLintingResult($e);
         }
     }

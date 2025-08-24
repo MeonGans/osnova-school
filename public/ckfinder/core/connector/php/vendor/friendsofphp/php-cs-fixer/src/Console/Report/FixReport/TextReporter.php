@@ -23,19 +23,25 @@ use PhpCsFixer\Differ\DiffConsoleFormatter;
  */
 final class TextReporter implements ReporterInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getFormat(): string
     {
         return 'txt';
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function generate(ReportSummary $reportSummary): string
     {
         $output = '';
 
-        $identifiedFiles = 0;
+        $i = 0;
         foreach ($reportSummary->getChanged() as $file => $fixResult) {
-            ++$identifiedFiles;
-            $output .= sprintf('%4d) %s', $identifiedFiles, $file);
+            ++$i;
+            $output .= sprintf('%4d) %s', $i, $file);
 
             if ($reportSummary->shouldAddAppliedFixers()) {
                 $output .= $this->getAppliedFixers(
@@ -48,13 +54,7 @@ final class TextReporter implements ReporterInterface
             $output .= PHP_EOL;
         }
 
-        return $output.$this->getFooter(
-            $reportSummary->getTime(),
-            $identifiedFiles,
-            $reportSummary->getFilesCount(),
-            $reportSummary->getMemory(),
-            $reportSummary->isDryRun()
-        );
+        return $output.$this->getFooter($reportSummary->getTime(), $reportSummary->getMemory(), $reportSummary->isDryRun());
     }
 
     /**
@@ -83,20 +83,17 @@ final class TextReporter implements ReporterInterface
         return PHP_EOL.$diffFormatter->format($diff).PHP_EOL;
     }
 
-    private function getFooter(int $time, int $identifiedFiles, int $files, int $memory, bool $isDryRun): string
+    private function getFooter(int $time, int $memory, bool $isDryRun): string
     {
         if (0 === $time || 0 === $memory) {
             return '';
         }
 
         return PHP_EOL.sprintf(
-            '%s %d of %d %s in %.3f seconds, %.3f MB memory used'.PHP_EOL,
-            $isDryRun ? 'Found' : 'Fixed',
-            $identifiedFiles,
-            $files,
-            $isDryRun ? 'files that can be fixed' : 'files',
-            $time / 1_000,
-            $memory / 1_024 / 1_024
+            '%s all files in %.3f seconds, %.3f MB memory used'.PHP_EOL,
+            $isDryRun ? 'Checked' : 'Fixed',
+            $time / 1000,
+            $memory / 1024 / 1024
         );
     }
 }

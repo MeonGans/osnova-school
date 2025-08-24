@@ -34,6 +34,9 @@ final class EmptyLoopBodyFixer extends AbstractFixer implements ConfigurableFixe
 
     private const TOKEN_LOOP_KINDS = [T_FOR, T_FOREACH, T_WHILE];
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -61,11 +64,17 @@ final class EmptyLoopBodyFixer extends AbstractFixer implements ConfigurableFixe
         return 39;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isAnyTokenKindsFound(self::TOKEN_LOOP_KINDS);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         if (self::STYLE_BRACES === $this->configuration['style']) {
@@ -92,7 +101,7 @@ final class EmptyLoopBodyFixer extends AbstractFixer implements ConfigurableFixe
                     return;
                 }
 
-                $braceCloseIndex = $tokens->getNextNonWhitespace($braceOpenIndex);
+                $braceCloseIndex = $tokens->getNextMeaningfulToken($braceOpenIndex);
 
                 if (!$tokens[$braceCloseIndex]->equals('}')) {
                     return;
@@ -112,6 +121,9 @@ final class EmptyLoopBodyFixer extends AbstractFixer implements ConfigurableFixe
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([

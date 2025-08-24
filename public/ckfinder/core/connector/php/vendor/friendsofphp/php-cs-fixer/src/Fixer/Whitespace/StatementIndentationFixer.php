@@ -15,12 +15,8 @@ declare(strict_types=1);
 namespace PhpCsFixer\Fixer\Whitespace;
 
 use PhpCsFixer\AbstractFixer;
-use PhpCsFixer\Fixer\ConfigurableFixerInterface;
 use PhpCsFixer\Fixer\Indentation;
 use PhpCsFixer\Fixer\WhitespacesAwareFixerInterface;
-use PhpCsFixer\FixerConfiguration\FixerConfigurationResolver;
-use PhpCsFixer\FixerConfiguration\FixerConfigurationResolverInterface;
-use PhpCsFixer\FixerConfiguration\FixerOptionBuilder;
 use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
@@ -30,7 +26,7 @@ use PhpCsFixer\Tokenizer\CT;
 use PhpCsFixer\Tokenizer\Token;
 use PhpCsFixer\Tokenizer\Tokens;
 
-final class StatementIndentationFixer extends AbstractFixer implements ConfigurableFixerInterface, WhitespacesAwareFixerInterface
+final class StatementIndentationFixer extends AbstractFixer implements WhitespacesAwareFixerInterface
 {
     use Indentation;
 
@@ -45,6 +41,9 @@ final class StatementIndentationFixer extends AbstractFixer implements Configura
         $this->bracesFixerCompatibility = $bracesFixerCompatibility;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -60,35 +59,6 @@ else {
 }
 '
                 ),
-                new CodeSample(
-                    '<?php
-        // foo
-if ($foo) {
-    echo "foo";
-        // this is treated as comment of `if` block, as `stick_comment_to_next_continuous_control_statement` is disabled
-} else {
-    $aaa = 1;
-}
-',
-                    ['stick_comment_to_next_continuous_control_statement' => false]
-                ),
-                new CodeSample(
-                    '<?php
-        // foo
-if ($foo) {
-    echo "foo";
-        // this is treated as comment of `elseif(1)` block, as `stick_comment_to_next_continuous_control_statement` is enabled
-} elseif(1) {
-    echo "bar";
-} elseif(2) {
-        // this is treated as comment of `elseif(2)` block, as the only content of that block
-} elseif(3) {
-    $aaa = 1;
-        // this is treated as comment of `elseif(3)` block, as it is a comment in the final block
-}
-',
-                    ['stick_comment_to_next_continuous_control_statement' => true]
-                ),
             ]
         );
     }
@@ -97,26 +67,19 @@ if ($foo) {
      * {@inheritdoc}
      *
      * Must run before HeredocIndentationFixer.
-     * Must run after BracesPositionFixer, ClassAttributesSeparationFixer, CurlyBracesPositionFixer, FullyQualifiedStrictTypesFixer, GlobalNamespaceImportFixer, MethodArgumentSpaceFixer, NoUselessElseFixer, YieldFromArrayToYieldsFixer.
+     * Must run after ClassAttributesSeparationFixer.
      */
     public function getPriority(): int
     {
-        return -3;
+        return parent::getPriority();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return true;
-    }
-
-    protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
-    {
-        return new FixerConfigurationResolver([
-            (new FixerOptionBuilder('stick_comment_to_next_continuous_control_statement', 'Last comment of code block counts as comment for next block.'))
-                ->setAllowedTypes(['bool'])
-                ->setDefault(false)
-                ->getOption(),
-        ]);
     }
 
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
@@ -131,26 +94,16 @@ if ($foo) {
             T_FOR,
             T_FOREACH,
             T_WHILE,
-            T_DO,
             T_SWITCH,
             T_CASE,
             T_DEFAULT,
             T_TRY,
+            T_FUNCTION,
             T_CLASS,
             T_INTERFACE,
             T_TRAIT,
             T_EXTENDS,
             T_IMPLEMENTS,
-            T_CONST,
-        ];
-        $controlStructurePossibiblyWithoutBracesTokens = [
-            T_IF,
-            T_ELSE,
-            T_ELSEIF,
-            T_FOR,
-            T_FOREACH,
-            T_WHILE,
-            T_DO,
         ];
         if (\defined('T_MATCH')) { // @TODO: drop condition when PHP 8.0+ is required
             $blockSignatureFirstTokens[] = T_MATCH;
@@ -179,7 +132,6 @@ if ($foo) {
          *     end_index: int,
          *     end_index_inclusive: bool,
          *     initial_indent: string,
-         *     new_indent?: string,
          *     is_indented_block: bool,
          * }> $scopes
          */
@@ -196,24 +148,11 @@ if ($foo) {
 
         $previousLineInitialIndent = '';
         $previousLineNewIndent = '';
-        $noBracesBlockStarts = [];
         $alternativeBlockStarts = [];
         $caseBlockStarts = [];
 
         foreach ($tokens as $index => $token) {
             $currentScope = \count($scopes) - 1;
-
-            if (isset($noBracesBlockStarts[$index])) {
-                $scopes[] = [
-                    'type' => 'block',
-                    'skip' => false,
-                    'end_index' => $this->findStatementEndIndex($tokens, $index, \count($tokens) - 1),
-                    'end_index_inclusive' => true,
-                    'initial_indent' => $this->getLineIndentationWithBracesCompatibility($tokens, $index, $lastIndent),
-                    'is_indented_block' => true,
-                ];
-                ++$currentScope;
-            }
 
             if (
                 $token->equalsAny($blockFirstTokens)
@@ -230,7 +169,7 @@ if ($foo) {
                 } elseif ($token->equals(':')) {
                     if (isset($caseBlockStarts[$index])) {
                         [$endIndex, $endIndexInclusive] = $this->findCaseBlockEnd($tokens, $index);
-                    } elseif ($this->alternativeSyntaxAnalyzer->belongsToAlternativeSyntax($tokens, $index)) {
+                    } else {
                         $endIndex = $this->alternativeSyntaxAnalyzer->findAlternativeSyntaxBlockEnd($tokens, $alternativeBlockStarts[$index]);
                     }
                 } elseif ($token->isGivenKind(CT::T_DESTRUCTURING_SQUARE_BRACE_OPEN)) {
@@ -281,45 +220,19 @@ if ($foo) {
                 continue;
             }
 
-            if (
-                $token->isGivenKind(CT::T_ARRAY_SQUARE_BRACE_OPEN)
-                || ($token->equals('(') && $tokens[$tokens->getPrevMeaningfulToken($index)]->isGivenKind(T_ARRAY))
-            ) {
-                $blockType = $token->equals('(') ? Tokens::BLOCK_TYPE_PARENTHESIS_BRACE : Tokens::BLOCK_TYPE_ARRAY_SQUARE_BRACE;
-
-                $scopes[] = [
-                    'type' => 'statement',
-                    'skip' => true,
-                    'end_index' => $tokens->findBlockEnd($blockType, $index),
-                    'end_index_inclusive' => true,
-                    'initial_indent' => $previousLineInitialIndent,
-                    'new_indent' => $previousLineNewIndent,
-                    'is_indented_block' => false,
-                ];
-
-                continue;
-            }
-
-            $isPropertyStart = $this->isPropertyStart($tokens, $index);
-            if ($isPropertyStart || $token->isGivenKind($blockSignatureFirstTokens)) {
-                $lastWhitespaceIndex = null;
-                $closingParenthesisIndex = null;
-
+            if ($token->isGivenKind($blockSignatureFirstTokens)) {
                 for ($endIndex = $index + 1, $max = \count($tokens); $endIndex < $max; ++$endIndex) {
-                    $endToken = $tokens[$endIndex];
-
-                    if ($endToken->equals('(')) {
-                        $closingParenthesisIndex = $tokens->findBlockEnd(Tokens::BLOCK_TYPE_PARENTHESIS_BRACE, $endIndex);
-                        $endIndex = $closingParenthesisIndex;
+                    if ($tokens[$endIndex]->equals('(')) {
+                        $endIndex = $tokens->findBlockEnd(Tokens::BLOCK_TYPE_PARENTHESIS_BRACE, $endIndex);
 
                         continue;
                     }
 
-                    if ($endToken->equalsAny(['{', ';', [T_DOUBLE_ARROW], [T_IMPLEMENTS]])) {
+                    if ($tokens[$endIndex]->equalsAny(['{', ';', [T_DOUBLE_ARROW], [T_IMPLEMENTS]])) {
                         break;
                     }
 
-                    if ($endToken->equals(':')) {
+                    if ($tokens[$endIndex]->equals(':')) {
                         if ($token->isGivenKind([T_CASE, T_DEFAULT])) {
                             $caseBlockStarts[$endIndex] = $index;
                         } else {
@@ -328,25 +241,6 @@ if ($foo) {
 
                         break;
                     }
-
-                    if (!$token->isGivenKind($controlStructurePossibiblyWithoutBracesTokens)) {
-                        continue;
-                    }
-
-                    if ($endToken->isWhitespace()) {
-                        $lastWhitespaceIndex = $endIndex;
-
-                        continue;
-                    }
-
-                    if (!$endToken->isComment()) {
-                        $noBraceBlockStartIndex = $lastWhitespaceIndex ?? $endIndex;
-                        $noBracesBlockStarts[$noBraceBlockStartIndex] = true;
-
-                        $endIndex = $closingParenthesisIndex ?? $index;
-
-                        break;
-                    }
                 }
 
                 $scopes[] = [
@@ -355,34 +249,7 @@ if ($foo) {
                     'end_index' => $endIndex,
                     'end_index_inclusive' => true,
                     'initial_indent' => $this->getLineIndentationWithBracesCompatibility($tokens, $index, $lastIndent),
-                    'is_indented_block' => $isPropertyStart || $token->isGivenKind([T_EXTENDS, T_IMPLEMENTS, T_CONST]),
-                ];
-
-                continue;
-            }
-
-            if ($token->isGivenKind(T_FUNCTION)) {
-                $endIndex = $index + 1;
-
-                for ($max = \count($tokens); $endIndex < $max; ++$endIndex) {
-                    if ($tokens[$endIndex]->equals('(')) {
-                        $endIndex = $tokens->findBlockEnd(Tokens::BLOCK_TYPE_PARENTHESIS_BRACE, $endIndex);
-
-                        continue;
-                    }
-
-                    if ($tokens[$endIndex]->equalsAny(['{', ';'])) {
-                        break;
-                    }
-                }
-
-                $scopes[] = [
-                    'type' => 'block_signature',
-                    'skip' => false,
-                    'end_index' => $endIndex,
-                    'end_index_inclusive' => true,
-                    'initial_indent' => $this->getLineIndentationWithBracesCompatibility($tokens, $index, $lastIndent),
-                    'is_indented_block' => false,
+                    'is_indented_block' => $token->isGivenKind([T_EXTENDS, T_IMPLEMENTS]),
                 ];
 
                 continue;
@@ -394,7 +261,8 @@ if ($foo) {
             ) {
                 $previousOpenTagContent = $tokens[$index - 1]->isGivenKind(T_OPEN_TAG)
                     ? Preg::replace('/\S/', '', $tokens[$index - 1]->getContent())
-                    : '';
+                    : ''
+                ;
 
                 $content = $previousOpenTagContent.($token->isWhitespace() ? $token->getContent() : '');
 
@@ -437,40 +305,17 @@ if ($foo) {
                             }
                         }
 
-                        $endIndex = $scopes[$currentScope]['end_index'];
+                        if (!$this->isCommentForControlSructureContinuation($tokens, $index + 1)) {
+                            $endIndex = $scopes[$currentScope]['end_index'];
 
-                        if (!$scopes[$currentScope]['end_index_inclusive']) {
-                            ++$endIndex;
-                        }
+                            if (!$scopes[$currentScope]['end_index_inclusive']) {
+                                ++$endIndex;
+                            }
 
-                        if (
-                            (null !== $firstNonWhitespaceTokenIndex && $firstNonWhitespaceTokenIndex < $endIndex)
-                            || (null !== $nextNewlineIndex && $nextNewlineIndex < $endIndex)
-                        ) {
                             if (
-                                // do we touch whitespace directly before comment...
-                                $tokens[$firstNonWhitespaceTokenIndex]->isGivenKind(T_COMMENT)
-                                // ...and afterwards, there is only comment or `}`
-                                && $tokens[$tokens->getNextMeaningfulToken($firstNonWhitespaceTokenIndex)]->equals('}')
+                                (null !== $firstNonWhitespaceTokenIndex && $firstNonWhitespaceTokenIndex < $endIndex)
+                                || (null !== $nextNewlineIndex && $nextNewlineIndex < $endIndex)
                             ) {
-                                if (
-                                    // ... and the comment was only content in docblock
-                                    $tokens[$tokens->getPrevMeaningfulToken($firstNonWhitespaceTokenIndex)]->equals('{')
-                                ) {
-                                    $indent = true;
-                                } else {
-                                    // or it was dedicated comment for next control loop
-                                    // ^^ we need to check if there is a control group afterwards, and in that case don't make extra indent level
-                                    $nextIndex = $tokens->getNextMeaningfulToken($firstNonWhitespaceTokenIndex);
-                                    $nextNextIndex = $tokens->getNextMeaningfulToken($nextIndex);
-
-                                    if (null !== $nextNextIndex && $tokens[$nextNextIndex]->isGivenKind([T_ELSE, T_ELSEIF])) {
-                                        $indent = true !== $this->configuration['stick_comment_to_next_continuous_control_statement'];
-                                    } else {
-                                        $indent = true;
-                                    }
-                                }
-                            } else {
                                 $indent = true;
                             }
                         }
@@ -559,7 +404,6 @@ if ($foo) {
                     'end_index_inclusive' => false,
                     'initial_indent' => $previousLineInitialIndent,
                     'new_indent' => $previousLineNewIndent,
-                    'is_indented_block' => true,
                 ];
             }
         }
@@ -569,25 +413,8 @@ if ($foo) {
     {
         $endIndex = null;
 
-        $ifLevel = 0;
-        $doWhileLevel = 0;
         for ($searchEndIndex = $index; $searchEndIndex <= $parentScopeEndIndex; ++$searchEndIndex) {
             $searchEndToken = $tokens[$searchEndIndex];
-
-            if (
-                $searchEndToken->isGivenKind(T_IF)
-                && !$tokens[$tokens->getPrevMeaningfulToken($searchEndIndex)]->isGivenKind(T_ELSE)
-            ) {
-                ++$ifLevel;
-
-                continue;
-            }
-
-            if ($searchEndToken->isGivenKind(T_DO)) {
-                ++$doWhileLevel;
-
-                continue;
-            }
 
             if ($searchEndToken->equalsAny(['(', '{', [CT::T_ARRAY_SQUARE_BRACE_OPEN]])) {
                 if ($searchEndToken->equals('(')) {
@@ -599,46 +426,15 @@ if ($foo) {
                 }
 
                 $searchEndIndex = $tokens->findBlockEnd($blockType, $searchEndIndex);
-                $searchEndToken = $tokens[$searchEndIndex];
-            }
-
-            if (!$searchEndToken->equalsAny([';', ',', '}', [T_CLOSE_TAG]])) {
-                continue;
-            }
-
-            $controlStructureContinuationIndex = $tokens->getNextMeaningfulToken($searchEndIndex);
-
-            if (
-                $ifLevel > 0
-                && null !== $controlStructureContinuationIndex
-                && $tokens[$controlStructureContinuationIndex]->isGivenKind([T_ELSE, T_ELSEIF])
-            ) {
-                if (
-                    $tokens[$controlStructureContinuationIndex]->isGivenKind(T_ELSE)
-                    && !$tokens[$tokens->getNextMeaningfulToken($controlStructureContinuationIndex)]->isGivenKind(T_IF)
-                ) {
-                    --$ifLevel;
-                }
-
-                $searchEndIndex = $controlStructureContinuationIndex;
 
                 continue;
             }
 
-            if (
-                $doWhileLevel > 0
-                && null !== $controlStructureContinuationIndex
-                && $tokens[$controlStructureContinuationIndex]->isGivenKind([T_WHILE])
-            ) {
-                --$doWhileLevel;
-                $searchEndIndex = $controlStructureContinuationIndex;
+            if ($searchEndToken->equalsAny([';', ',', '}', [T_CLOSE_TAG]])) {
+                $endIndex = $tokens->getPrevNonWhitespace($searchEndIndex);
 
-                continue;
+                break;
             }
-
-            $endIndex = $tokens->getPrevNonWhitespace($searchEndIndex);
-
-            break;
         }
 
         return $endIndex ?? $tokens->getPrevMeaningfulToken($parentScopeEndIndex);
@@ -701,35 +497,34 @@ if ($foo) {
         return $regularIndent;
     }
 
-    /**
-     * Returns whether the token at given index is the last token in a property
-     * declaration before the type or the name of that property.
-     */
-    private function isPropertyStart(Tokens $tokens, int $index): bool
+    private function isCommentForControlSructureContinuation(Tokens $tokens, int $index): bool
     {
-        $propertyKeywords = [T_VAR, T_PUBLIC, T_PROTECTED, T_PRIVATE, T_STATIC];
-        if (\defined('T_READONLY')) { // @TODO: drop condition when PHP 8.1+ is required
-            $propertyKeywords[] = T_READONLY;
-        }
-
-        $nextIndex = $tokens->getNextMeaningfulToken($index);
-        if (
-            null === $nextIndex
-            || $tokens[$nextIndex]->isGivenKind($propertyKeywords)
-            || $tokens[$nextIndex]->isGivenKind([T_CONST, T_FUNCTION])
-        ) {
+        if (!isset($tokens[$index], $tokens[$index + 1])) {
             return false;
         }
 
-        while ($tokens[$index]->isGivenKind($propertyKeywords)) {
-            if ($tokens[$index]->isGivenKind([T_VAR, T_PUBLIC, T_PROTECTED, T_PRIVATE])) {
-                return true;
-            }
-
-            $index = $tokens->getPrevMeaningfulToken($index);
+        if (!$tokens[$index]->isComment() || 1 !== Preg::match('~^(//|#)~', $tokens[$index]->getContent())) {
+            return false;
         }
 
-        return false;
+        if (!$tokens[$index + 1]->isWhitespace() || 1 !== Preg::match('/\R/', $tokens[$index + 1]->getContent())) {
+            return false;
+        }
+
+        $prevIndex = $tokens->getPrevMeaningfulToken($index);
+        if (null !== $prevIndex && $tokens[$prevIndex]->equals('{')) {
+            return false;
+        }
+
+        $index = $tokens->getNextMeaningfulToken($index + 1);
+
+        if (null === $index || !$tokens[$index]->equals('}')) {
+            return false;
+        }
+
+        $index = $tokens->getNextMeaningfulToken($index);
+
+        return null !== $index && $tokens[$index]->equalsAny([[T_ELSE], [T_ELSEIF], ',']);
     }
 
     /**
@@ -752,28 +547,28 @@ if ($foo) {
 
         $indent = preg_quote($this->whitespacesConfig->getIndent(), '~');
 
-        if (Preg::match("~^(//|#)({$indent}.*)?$~", $tokens[$index]->getContent())) {
+        if (1 === Preg::match("~^(//|#)({$indent}.*)?$~", $tokens[$index]->getContent())) {
             return false;
         }
 
         $firstCommentIndex = $index;
         while (true) {
-            $firstCommentCandidateIndex = $this->getSiblingContinuousSingleLineComment($tokens, $firstCommentIndex, false);
-            if (null === $firstCommentCandidateIndex) {
+            $i = $this->getSiblingContinuousSingleLineComment($tokens, $firstCommentIndex, false);
+            if (null === $i) {
                 break;
             }
 
-            $firstCommentIndex = $firstCommentCandidateIndex;
+            $firstCommentIndex = $i;
         }
 
         $lastCommentIndex = $index;
         while (true) {
-            $lastCommentCandidateIndex = $this->getSiblingContinuousSingleLineComment($tokens, $lastCommentIndex, true);
-            if (null === $lastCommentCandidateIndex) {
+            $i = $this->getSiblingContinuousSingleLineComment($tokens, $lastCommentIndex, true);
+            if (null === $i) {
                 break;
             }
 
-            $lastCommentIndex = $lastCommentCandidateIndex;
+            $lastCommentIndex = $i;
         }
 
         if ($firstCommentIndex === $lastCommentIndex) {

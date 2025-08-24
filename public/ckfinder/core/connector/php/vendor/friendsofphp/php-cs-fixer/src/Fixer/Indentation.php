@@ -87,6 +87,6 @@ trait Indentation
             return false;
         }
 
-        return Preg::match('/\R/', $this->computeNewLineContent($tokens, $index));
+        return (bool) Preg::match('/\R/', $this->computeNewLineContent($tokens, $index));
     }
 }

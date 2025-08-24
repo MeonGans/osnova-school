@@ -30,6 +30,9 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class NoAlternativeSyntaxFixer extends AbstractFixer implements ConfigurableFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -46,6 +49,9 @@ final class NoAlternativeSyntaxFixer extends AbstractFixer implements Configurab
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->hasAlternativeSyntax() && (true === $this->configuration['fix_non_monolithic_code'] || $tokens->isMonolithicPhp());
@@ -61,6 +67,9 @@ final class NoAlternativeSyntaxFixer extends AbstractFixer implements Configurab
         return 42;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
@@ -71,6 +80,9 @@ final class NoAlternativeSyntaxFixer extends AbstractFixer implements Configurab
         ]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         for ($index = \count($tokens) - 1; 0 <= $index; --$index) {
@@ -88,7 +100,8 @@ final class NoAlternativeSyntaxFixer extends AbstractFixer implements Configurab
 
         return $nextToken->equals('(')
             ? $tokens->findBlockEnd(Tokens::BLOCK_TYPE_PARENTHESIS_BRACE, $nextIndex)
-            : $structureTokenIndex; // return if next token is not opening parenthesis
+            : $structureTokenIndex // return if next token is not opening parenthesis
+        ;
     }
 
     /**

@@ -14,8 +14,6 @@ declare(strict_types=1);
 
 namespace PhpCsFixer\Cache;
 
-use PhpCsFixer\Utils;
-
 /**
  * @author Andreas Möller <am@localheinz.com>
  *
@@ -75,7 +73,7 @@ final class Cache implements CacheInterface
             'hashes' => $this->hashes,
         ]);
 
-        if (JSON_ERROR_NONE !== json_last_error() || false === $json) {
+        if (JSON_ERROR_NONE !== json_last_error()) {
             throw new \UnexpectedValueException(sprintf(
                 'Cannot encode cache signature to JSON, error: "%s". If you have non-UTF8 chars in your signature, like in license for `header_comment`, consider enabling `ext-mbstring` or install `symfony/polyfill-mbstring`.',
                 json_last_error_msg()
@@ -113,8 +111,8 @@ final class Cache implements CacheInterface
 
         if (\count($missingKeys) > 0) {
             throw new \InvalidArgumentException(sprintf(
-                'JSON data is missing keys %s',
-                Utils::naturalLanguageJoin(array_keys($missingKeys))
+                'JSON data is missing keys "%s"',
+                implode('", "', $missingKeys)
             ));
         }
 
@@ -128,24 +126,12 @@ final class Cache implements CacheInterface
 
         $cache = new self($signature);
 
-        // before v3.11.1 the hashes were crc32 encoded and saved as integers
-        // @TODO: remove the to string cast/array_map in v4.0
-        $cache->hashes = array_map(static fn ($v): string => \is_int($v) ? (string) $v : $v, $data['hashes']);
+        $cache->hashes = array_map(function ($v): string {
+            // before v3.11.1 the hashes were crc32 encoded and saved as integers
+            // @TODO: remove the to string cast/array_map in v4.0
+            return \is_int($v) ? (string) $v : $v;
+        }, $data['hashes']);
 
         return $cache;
-    }
-
-    /**
-     * @internal
-     */
-    public function backfillHashes(self $oldCache): bool
-    {
-        if (!$this->getSignature()->equals($oldCache->getSignature())) {
-            return false;
-        }
-
-        $this->hashes = array_merge($oldCache->hashes, $this->hashes);
-
-        return true;
     }
 }

@@ -26,14 +26,8 @@ final class FixerDefinition implements FixerDefinitionInterface
      */
     private array $codeSamples;
 
-    /**
-     * Description of Fixer and benefit of using it.
-     */
     private ?string $description;
 
-    /**
-     * Description why Fixer is risky.
-     */
     private ?string $riskyDescription;
 
     /**

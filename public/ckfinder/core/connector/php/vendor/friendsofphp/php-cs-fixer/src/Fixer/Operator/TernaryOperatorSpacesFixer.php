@@ -19,8 +19,9 @@ use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
 use PhpCsFixer\Tokenizer\Analyzer\AlternativeSyntaxAnalyzer;
+use PhpCsFixer\Tokenizer\Analyzer\Analysis\SwitchAnalysis;
+use PhpCsFixer\Tokenizer\Analyzer\ControlCaseStructuresAnalyzer;
 use PhpCsFixer\Tokenizer\Analyzer\GotoLabelAnalyzer;
-use PhpCsFixer\Tokenizer\Analyzer\SwitchAnalyzer;
 use PhpCsFixer\Tokenizer\Token;
 use PhpCsFixer\Tokenizer\Tokens;
 
@@ -29,6 +30,9 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class TernaryOperatorSpacesFixer extends AbstractFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -44,26 +48,33 @@ final class TernaryOperatorSpacesFixer extends AbstractFixer
      */
     public function getPriority(): int
     {
-        return 1;
+        return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isAllTokenKindsFound(['?', ':']);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $alternativeSyntaxAnalyzer = new AlternativeSyntaxAnalyzer();
         $gotoLabelAnalyzer = new GotoLabelAnalyzer();
         $ternaryOperatorIndices = [];
+        $excludedIndices = $this->getColonIndicesForSwitch($tokens);
 
         foreach ($tokens as $index => $token) {
             if (!$token->equalsAny(['?', ':'])) {
                 continue;
             }
 
-            if (SwitchAnalyzer::belongsToSwitch($tokens, $index)) {
+            if (\in_array($index, $excludedIndices, true)) {
                 continue;
             }
 
@@ -110,6 +121,29 @@ final class TernaryOperatorSpacesFixer extends AbstractFixer
                 }
             }
         }
+    }
+
+    /**
+     * @return int[]
+     */
+    private function getColonIndicesForSwitch(Tokens $tokens): array
+    {
+        $colonIndices = [];
+
+        /** @var SwitchAnalysis $analysis */
+        foreach (ControlCaseStructuresAnalyzer::findControlStructures($tokens, [T_SWITCH]) as $analysis) {
+            foreach ($analysis->getCases() as $case) {
+                $colonIndices[] = $case->getColonIndex();
+            }
+
+            $defaultAnalysis = $analysis->getDefaultAnalysis();
+
+            if (null !== $defaultAnalysis) {
+                $colonIndices[] = $defaultAnalysis->getColonIndex();
+            }
+        }
+
+        return $colonIndices;
     }
 
     private function ensureWhitespaceExistence(Tokens $tokens, int $index, bool $after): void

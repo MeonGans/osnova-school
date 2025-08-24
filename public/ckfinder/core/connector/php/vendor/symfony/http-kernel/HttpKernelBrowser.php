@@ -30,13 +30,13 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class HttpKernelBrowser extends AbstractBrowser
 {
-    protected HttpKernelInterface $kernel;
+    protected $kernel;
     private bool $catchExceptions = true;
 
     /**
      * @param array $server The server parameters (equivalent of $_SERVER)
      */
-    public function __construct(HttpKernelInterface $kernel, array $server = [], ?History $history = null, ?CookieJar $cookieJar = null)
+    public function __construct(HttpKernelInterface $kernel, array $server = [], History $history = null, CookieJar $cookieJar = null)
     {
         // These class properties must be set before calling the parent constructor, as it may depend on it.
         $this->kernel = $kernel;
@@ -48,15 +48,19 @@ class HttpKernelBrowser extends AbstractBrowser
     /**
      * Sets whether to catch exceptions when the kernel is handling a request.
      */
-    public function catchExceptions(bool $catchExceptions): void
+    public function catchExceptions(bool $catchExceptions)
     {
         $this->catchExceptions = $catchExceptions;
     }
 
     /**
+     * {@inheritdoc}
+     *
      * @param Request $request
+     *
+     * @return Response
      */
-    protected function doRequest(object $request): Response
+    protected function doRequest(object $request)
     {
         $response = $this->kernel->handle($request, HttpKernelInterface::MAIN_REQUEST, $this->catchExceptions);
 
@@ -68,9 +72,13 @@ class HttpKernelBrowser extends AbstractBrowser
     }
 
     /**
+     * {@inheritdoc}
+     *
      * @param Request $request
+     *
+     * @return string
      */
-    protected function getScript(object $request): string
+    protected function getScript(object $request)
     {
         $kernel = var_export(serialize($this->kernel), true);
         $request = var_export(serialize($request), true);
@@ -106,7 +114,7 @@ EOF;
         return $code.$this->getHandleScript();
     }
 
-    protected function getHandleScript(): string
+    protected function getHandleScript()
     {
         return <<<'EOF'
 $response = $kernel->handle($request);
@@ -119,6 +127,9 @@ echo serialize($response);
 EOF;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function filterRequest(DomRequest $request): Request
     {
         $httpRequest = Request::create($request->getUri(), $request->getMethod(), $request->getParameters(), $request->getCookies(), $request->getFiles(), $server = $request->getServer(), $request->getContent());
@@ -175,6 +186,8 @@ EOF;
     }
 
     /**
+     * {@inheritdoc}
+     *
      * @param Response $response
      */
     protected function filterResponse(object $response): DomResponse

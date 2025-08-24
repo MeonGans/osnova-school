@@ -47,7 +47,7 @@ final class FileRemoval
      */
     public function __sleep(): array
     {
-        throw new \BadMethodCallException('Cannot serialize '.self::class);
+        throw new \BadMethodCallException('Cannot serialize '.__CLASS__);
     }
 
     /**
@@ -58,7 +58,7 @@ final class FileRemoval
      */
     public function __wakeup(): void
     {
-        throw new \BadMethodCallException('Cannot unserialize '.self::class);
+        throw new \BadMethodCallException('Cannot unserialize '.__CLASS__);
     }
 
     /**

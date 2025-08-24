@@ -16,7 +16,6 @@ namespace PhpCsFixer;
 
 use PhpCsFixer\DocBlock\Annotation;
 use PhpCsFixer\DocBlock\DocBlock;
-use PhpCsFixer\DocBlock\TypeExpression;
 use PhpCsFixer\Tokenizer\Token;
 use PhpCsFixer\Tokenizer\Tokens;
 
@@ -32,10 +31,13 @@ abstract class AbstractPhpdocTypesFixer extends AbstractFixer
     /**
      * The annotation tags search inside.
      *
-     * @var list<string>
+     * @var string[]
      */
     protected array $tags;
 
+    /**
+     * {@inheritdoc}
+     */
     public function __construct()
     {
         parent::__construct();
@@ -43,11 +45,17 @@ abstract class AbstractPhpdocTypesFixer extends AbstractFixer
         $this->tags = Annotation::getTagsWithTypes();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_DOC_COMMENT);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         foreach ($tokens as $index => $token) {
@@ -94,30 +102,27 @@ abstract class AbstractPhpdocTypesFixer extends AbstractFixer
     }
 
     /**
-     * @param list<string> $types
+     * @param string[] $types
      *
-     * @return list<string>
+     * @return string[]
      */
     private function normalizeTypes(array $types): array
     {
-        return array_map(
-            function (string $type): string {
-                $typeExpression = new TypeExpression($type, null, []);
+        foreach ($types as $index => $type) {
+            $types[$index] = $this->normalizeType($type);
+        }
 
-                $typeExpression->walkTypes(function (TypeExpression $type): void {
-                    if (!$type->isUnionType()) {
-                        $value = $this->normalize($type->toString());
+        return $types;
+    }
 
-                        // TODO TypeExpression should be immutable and walkTypes method should be changed to mapTypes method
-                        \Closure::bind(static function () use ($type, $value): void {
-                            $type->value = $value;
-                        }, null, TypeExpression::class)();
-                    }
-                });
-
-                return $typeExpression->toString();
-            },
-            $types
-        );
+    /**
+     * Prepare the type and normalize it.
+     */
+    private function normalizeType(string $type): string
+    {
+        return str_ends_with($type, '[]')
+            ? $this->normalizeType(substr($type, 0, -2)).'[]'
+            : $this->normalize($type)
+        ;
     }
 }

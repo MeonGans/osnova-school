@@ -16,34 +16,33 @@ namespace PhpCsFixer\Fixer\FunctionNotation;
 
 use PhpCsFixer\AbstractPhpdocToTypeDeclarationFixer;
 use PhpCsFixer\DocBlock\Annotation;
-use PhpCsFixer\Fixer\ExperimentalFixerInterface;
-use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
+use PhpCsFixer\FixerDefinition\VersionSpecification;
+use PhpCsFixer\FixerDefinition\VersionSpecificCodeSample;
 use PhpCsFixer\Tokenizer\Token;
 use PhpCsFixer\Tokenizer\Tokens;
 
-/**
- * @phpstan-import-type _CommonTypeInfo from AbstractPhpdocToTypeDeclarationFixer
- */
-final class PhpdocToPropertyTypeFixer extends AbstractPhpdocToTypeDeclarationFixer implements ExperimentalFixerInterface
+final class PhpdocToPropertyTypeFixer extends AbstractPhpdocToTypeDeclarationFixer
 {
-    private const TYPE_CHECK_TEMPLATE = '<?php class A { private %s $b; }';
-
     /**
      * @var array<string, true>
      */
     private array $skippedTypes = [
+        'mixed' => true,
         'resource' => true,
         'null' => true,
     ];
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
-            'Takes `@var` annotation of non-mixed types and adjusts accordingly the property signature. Requires PHP >= 7.4.',
+            'EXPERIMENTAL: Takes `@var` annotation of non-mixed types and adjusts accordingly the property signature. Requires PHP >= 7.4.',
             [
-                new CodeSample(
+                new VersionSpecificCodeSample(
                     '<?php
 class Foo {
     /** @var int */
@@ -52,8 +51,9 @@ class Foo {
     private $bar;
 }
 ',
+                    new VersionSpecification(70400)
                 ),
-                new CodeSample(
+                new VersionSpecificCodeSample(
                     '<?php
 class Foo {
     /** @var int */
@@ -62,25 +62,18 @@ class Foo {
     private $bar;
 }
 ',
+                    new VersionSpecification(70400),
                     ['scalar_types' => false]
-                ),
-                new CodeSample(
-                    '<?php
-class Foo {
-    /** @var int|string */
-    private $foo;
-    /** @var \Traversable */
-    private $bar;
-}
-',
-                    ['union_types' => false]
                 ),
             ],
             null,
-            'The `@var` annotation is mandatory for the fixer to make changes, signatures of properties without it (no docblock) will not be fixed. Manual actions might be required for newly typed properties that are read before initialization.'
+            'This rule is EXPERIMENTAL and [1] is not covered with backward compatibility promise. [2] `@var` annotation is mandatory for the fixer to make changes, signatures of properties without it (no docblock) will not be fixed. [3] Manual actions might be required for newly typed properties that are read before initialization.'
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_DOC_COMMENT);
@@ -102,6 +95,9 @@ class Foo {
         return isset($this->skippedTypes[$type]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         for ($index = $tokens->count() - 1; 0 < $index; --$index) {
@@ -109,16 +105,6 @@ class Foo {
                 $this->fixClass($tokens, $index);
             }
         }
-    }
-
-    protected function createTokensFromRawType(string $type): Tokens
-    {
-        $typeTokens = Tokens::fromCode(sprintf(self::TYPE_CHECK_TEMPLATE, $type));
-        $typeTokens->clearRange(0, 8);
-        $typeTokens->clearRange(\count($typeTokens) - 5, \count($typeTokens) - 1);
-        $typeTokens->clearEmptyTokens();
-
-        return $typeTokens;
     }
 
     private function fixClass(Tokens $tokens, int $index): void
@@ -157,14 +143,9 @@ class Foo {
                 continue;
             }
 
-            $propertyType = $typeInfo['commonType'];
-            $isNullable = $typeInfo['isNullable'];
+            [$propertyType, $isNullable] = $typeInfo;
 
             if (\in_array($propertyType, ['callable', 'never', 'void'], true)) {
-                continue;
-            }
-
-            if (!$this->isValidSyntax(sprintf(self::TYPE_CHECK_TEMPLATE, $propertyType))) {
                 continue;
             }
 
@@ -215,8 +196,6 @@ class Foo {
     /**
      * @param array<string, int> $propertyIndices
      * @param Annotation[]       $annotations
-     *
-     * @return ?_CommonTypeInfo
      */
     private function resolveApplicableType(array $propertyIndices, array $annotations): ?array
     {
@@ -230,35 +209,18 @@ class Foo {
                     continue;
                 }
 
-                $propertyName = array_key_first($propertyIndices);
+                $propertyName = key($propertyIndices);
             }
 
             if (!isset($propertyIndices[$propertyName])) {
                 continue;
             }
 
-            $typesExpression = $annotation->getTypeExpression();
+            $typeInfo = $this->getCommonTypeFromAnnotation($annotation, false);
 
-            if (null === $typesExpression) {
-                continue;
-            }
-
-            $typeInfo = $this->getCommonTypeInfo($typesExpression, false);
-            $unionTypes = null;
-
-            if (null === $typeInfo) {
-                $unionTypes = $this->getUnionTypes($typesExpression, false);
-            }
-
-            if (null === $typeInfo && null === $unionTypes) {
-                continue;
-            }
-
-            if (null !== $unionTypes) {
-                $typeInfo = ['commonType' => $unionTypes, 'isNullable' => false];
-            }
-
-            if (\array_key_exists($propertyName, $propertyTypes) && $typeInfo !== $propertyTypes[$propertyName]) {
+            if (!isset($propertyTypes[$propertyName])) {
+                $propertyTypes[$propertyName] = [];
+            } elseif ($typeInfo !== $propertyTypes[$propertyName]) {
                 return null;
             }
 

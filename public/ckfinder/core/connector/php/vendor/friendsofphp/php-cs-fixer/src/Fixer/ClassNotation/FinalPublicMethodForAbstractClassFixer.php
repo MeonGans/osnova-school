@@ -47,6 +47,9 @@ final class FinalPublicMethodForAbstractClassFixer extends AbstractFixer
         '__debuginfo' => true,
     ];
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -69,23 +72,32 @@ abstract class AbstractMachine
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
-        return $tokens->isAllTokenKindsFound([T_ABSTRACT, T_PUBLIC, T_FUNCTION]);
+        return $tokens->isAllTokenKindsFound([T_CLASS, T_ABSTRACT, T_PUBLIC, T_FUNCTION]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isRisky(): bool
     {
         return true;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
-        $abstracts = array_keys($tokens->findGivenKind(T_ABSTRACT));
+        $classes = array_keys($tokens->findGivenKind(T_CLASS));
 
-        while ($abstractIndex = array_pop($abstracts)) {
-            $classIndex = $tokens->getNextTokenOfKind($abstractIndex, [[T_CLASS], [T_FUNCTION]]);
-            if (!$tokens[$classIndex]->isGivenKind(T_CLASS)) {
+        while ($classIndex = array_pop($classes)) {
+            $prevToken = $tokens[$tokens->getPrevMeaningfulToken($classIndex)];
+            if (!$prevToken->isGivenKind(T_ABSTRACT)) {
                 continue;
             }
 

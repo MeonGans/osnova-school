@@ -23,6 +23,9 @@ use PhpCsFixer\Tokenizer\Tokens;
 
 final class NoUnsetCastFixer extends AbstractFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -31,6 +34,9 @@ final class NoUnsetCastFixer extends AbstractFixer
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_UNSET_CAST);
@@ -46,6 +52,9 @@ final class NoUnsetCastFixer extends AbstractFixer
         return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         for ($index = \count($tokens) - 1; $index > 0; --$index) {

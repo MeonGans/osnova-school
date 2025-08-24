@@ -47,6 +47,9 @@ final class EregToPregFixer extends AbstractFixer
      */
     private static array $delimiters = ['/', '#', '!'];
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -67,16 +70,25 @@ final class EregToPregFixer extends AbstractFixer
         return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_STRING);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isRisky(): bool
     {
         return true;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $end = $tokens->count() - 1;
@@ -97,7 +109,7 @@ final class EregToPregFixer extends AbstractFixer
 
                 // findSequence also returns the tokens, but we're only interested in the indices, i.e.:
                 // 0 => function name,
-                // 1 => parenthesis "("
+                // 1 => bracket "("
                 // 2 => quoted string passed as 1st parameter
                 $match = array_keys($match);
 
@@ -188,6 +200,6 @@ final class EregToPregFixer extends AbstractFixer
             return $a[0] <=> $b[0];
         });
 
-        return array_key_first($delimiters);
+        return key($delimiters);
     }
 }

@@ -27,11 +27,17 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class WhitespacyCommentTransformer extends AbstractTransformer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getRequiredPhpVersionId(): int
     {
-        return 5_00_00;
+        return 50000;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function process(Tokens $tokens, Token $token, int $index): void
     {
         if (!$token->isComment()) {
@@ -57,6 +63,9 @@ final class WhitespacyCommentTransformer extends AbstractTransformer
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getCustomTokens(): array
     {
         return [];

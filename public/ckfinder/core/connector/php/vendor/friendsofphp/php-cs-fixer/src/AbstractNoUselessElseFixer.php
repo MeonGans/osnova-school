@@ -18,6 +18,9 @@ use PhpCsFixer\Tokenizer\Tokens;
 
 abstract class AbstractNoUselessElseFixer extends AbstractFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getPriority(): int
     {
         // should be run before NoWhitespaceInBlankLineFixer, NoExtraBlankLinesFixer, BracesFixer and after NoEmptyStatementFixer.

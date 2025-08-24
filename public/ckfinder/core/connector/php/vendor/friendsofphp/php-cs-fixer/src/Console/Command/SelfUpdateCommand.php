@@ -14,7 +14,6 @@ declare(strict_types=1);
 
 namespace PhpCsFixer\Console\Command;
 
-use PhpCsFixer\Console\Application;
 use PhpCsFixer\Console\SelfUpdate\NewVersionCheckerInterface;
 use PhpCsFixer\PharCheckerInterface;
 use PhpCsFixer\Preg;
@@ -37,7 +36,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'self-update')]
 final class SelfUpdateCommand extends Command
 {
-    /** @var string */
+    /**
+     * @var string
+     */
     protected static $defaultName = 'self-update';
 
     private NewVersionCheckerInterface $versionChecker;
@@ -58,6 +59,9 @@ final class SelfUpdateCommand extends Command
         $this->pharChecker = $pharChecker;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function configure(): void
     {
         $this
@@ -70,22 +74,25 @@ final class SelfUpdateCommand extends Command
             ->setDescription('Update php-cs-fixer.phar to the latest stable version.')
             ->setHelp(
                 <<<'EOT'
-                    The <info>%command.name%</info> command replace your php-cs-fixer.phar by the
-                    latest version released on:
-                    <comment>https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/releases</comment>
+The <info>%command.name%</info> command replace your php-cs-fixer.phar by the
+latest version released on:
+<comment>https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/releases</comment>
 
-                    <info>$ php php-cs-fixer.phar %command.name%</info>
+<info>$ php php-cs-fixer.phar %command.name%</info>
 
-                    EOT
+EOT
             )
         ;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if ($output instanceof ConsoleOutputInterface) {
+        if (OutputInterface::VERBOSITY_VERBOSE <= $output->getVerbosity() && $output instanceof ConsoleOutputInterface) {
             $stdErr = $output->getErrorOutput();
-            $stdErr->writeln(Application::getAboutWithRuntime(true));
+            $stdErr->writeln($this->getApplication()->getLongVersion());
         }
 
         if (!$this->toolInfo->isInstalledAsPhar()) {
@@ -136,11 +143,7 @@ final class SelfUpdateCommand extends Command
             $remoteTag = $latestVersionOfCurrentMajor;
         }
 
-        $localFilename = $_SERVER['argv'][0];
-        $realPath = realpath($localFilename);
-        if (false !== $realPath) {
-            $localFilename = $realPath;
-        }
+        $localFilename = realpath($_SERVER['argv'][0]) ?: $_SERVER['argv'][0];
 
         if (!is_writable($localFilename)) {
             $output->writeln(sprintf('<error>No permission to update</error> "%s" <error>file.</error>', $localFilename));

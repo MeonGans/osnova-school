@@ -28,6 +28,9 @@ final class TokenizerLintingResult implements LintingResultInterface
         $this->error = $error;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function check(): void
     {
         if (null !== $this->error) {

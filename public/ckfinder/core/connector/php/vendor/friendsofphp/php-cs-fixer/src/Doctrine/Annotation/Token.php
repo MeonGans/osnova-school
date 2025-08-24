@@ -14,6 +14,8 @@ declare(strict_types=1);
 
 namespace PhpCsFixer\Doctrine\Annotation;
 
+use Doctrine\Common\Annotations\DocLexer;
+
 /**
  * A Doctrine annotation token.
  *
@@ -25,17 +27,14 @@ final class Token
 
     private string $content;
 
-    private int $position;
-
     /**
      * @param int    $type    The type
      * @param string $content The content
      */
-    public function __construct(int $type = DocLexer::T_NONE, string $content = '', int $position = 0)
+    public function __construct(int $type = DocLexer::T_NONE, string $content = '')
     {
         $this->type = $type;
         $this->content = $content;
-        $this->position = $position;
     }
 
     public function getType(): int
@@ -56,11 +55,6 @@ final class Token
     public function setContent(string $content): void
     {
         $this->content = $content;
-    }
-
-    public function getPosition(): int
-    {
-        return $this->position;
     }
 
     /**

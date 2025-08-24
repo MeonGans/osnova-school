@@ -36,11 +36,17 @@ use PhpCsFixer\Tokenizer\TokensAnalyzer;
  */
 final class PhpUnitTestAnnotationFixer extends AbstractPhpUnitFixer implements ConfigurableFixerInterface, WhitespacesAwareFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function isRisky(): bool
     {
         return true;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -74,6 +80,9 @@ public function testItDoesSomething() {}}'.$this->whitespacesConfig->getLineEndi
         return 10;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyPhpUnitClassFix(Tokens $tokens, int $startIndex, int $endIndex): void
     {
         if ('annotation' === $this->configuration['style']) {
@@ -83,6 +92,9 @@ public function testItDoesSomething() {}}'.$this->whitespacesConfig->getLineEndi
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
@@ -173,7 +185,8 @@ public function testItDoesSomething() {}}'.$this->whitespacesConfig->getLineEndi
         // If the function doesn't have test in its name, and no doc block, it is not a test
         return
             $this->isPHPDoc($tokens, $docBlockIndex)
-            && str_contains($tokens[$docBlockIndex]->getContent(), '@test');
+            && str_contains($tokens[$docBlockIndex]->getContent(), '@test')
+        ;
     }
 
     private function isMethod(Tokens $tokens, int $index): bool
@@ -193,7 +206,7 @@ public function testItDoesSomething() {}}'.$this->whitespacesConfig->getLineEndi
         $docBlockIndex = $this->getDocBlockIndex($tokens, $index);
         $doc = $tokens[$docBlockIndex]->getContent();
 
-        return Preg::match('/\*\s+@test\b/', $doc);
+        return 1 === Preg::match('/\*\s+@test\b/', $doc);
     }
 
     private function removeTestPrefix(string $functionName): string
@@ -225,7 +238,7 @@ public function testItDoesSomething() {}}'.$this->whitespacesConfig->getLineEndi
     }
 
     /**
-     * @return list<Line>
+     * @return Line[]
      */
     private function updateDocBlock(Tokens $tokens, int $docBlockIndex): array
     {
@@ -236,9 +249,9 @@ public function testItDoesSomething() {}}'.$this->whitespacesConfig->getLineEndi
     }
 
     /**
-     * @param list<Line> $lines
+     * @param Line[] $lines
      *
-     * @return list<Line>
+     * @return Line[]
      */
     private function updateLines(array $lines, Tokens $tokens, int $docBlockIndex): array
     {
@@ -367,13 +380,13 @@ public function testItDoesSomething() {}}'.$this->whitespacesConfig->getLineEndi
      */
     private function findWhereDependsFunctionNameStarts(array $line): int
     {
-        $index = stripos(implode('', $line), '@depends') + 8;
+        $counter = \count($line);
 
-        while (' ' === $line[$index]) {
-            ++$index;
-        }
+        do {
+            --$counter;
+        } while (' ' !== $line[$counter]);
 
-        return $index;
+        return $counter + 1;
     }
 
     /**

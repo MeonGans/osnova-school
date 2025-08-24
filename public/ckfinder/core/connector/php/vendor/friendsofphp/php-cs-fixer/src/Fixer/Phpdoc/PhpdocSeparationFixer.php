@@ -17,6 +17,7 @@ namespace PhpCsFixer\Fixer\Phpdoc;
 use PhpCsFixer\AbstractFixer;
 use PhpCsFixer\DocBlock\Annotation;
 use PhpCsFixer\DocBlock\DocBlock;
+use PhpCsFixer\DocBlock\TagComparator;
 use PhpCsFixer\Fixer\ConfigurableFixerInterface;
 use PhpCsFixer\FixerConfiguration\FixerConfigurationResolver;
 use PhpCsFixer\FixerConfiguration\FixerConfigurationResolverInterface;
@@ -24,7 +25,6 @@ use PhpCsFixer\FixerConfiguration\FixerOptionBuilder;
 use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
-use PhpCsFixer\Preg;
 use PhpCsFixer\Tokenizer\Token;
 use PhpCsFixer\Tokenizer\Tokens;
 use Symfony\Component\OptionsResolver\Exception\InvalidOptionsException;
@@ -36,76 +36,45 @@ use Symfony\Component\OptionsResolver\Exception\InvalidOptionsException;
 final class PhpdocSeparationFixer extends AbstractFixer implements ConfigurableFixerInterface
 {
     /**
-     * @internal
-     *
-     * @var string[][]
-     */
-    public const OPTION_GROUPS_DEFAULT = [
-        ['author', 'copyright', 'license'],
-        ['category', 'package', 'subpackage'],
-        ['property', 'property-read', 'property-write'],
-        ['deprecated', 'link', 'see', 'since'],
-    ];
-
-    /**
      * @var string[][]
      */
     private array $groups;
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         $code = <<<'EOF'
-            <?php
-            /**
-             * Hello there!
-             *
-             * @author John Doe
-             * @custom Test!
-             *
-             * @throws Exception|RuntimeException foo
-             * @param string $foo
-             *
-             * @param bool   $bar Bar
-             * @return int  Return the number of changes.
-             */
+<?php
+/**
+ * Hello there!
+ *
+ * @author John Doe
+ * @custom Test!
+ *
+ * @throws Exception|RuntimeException foo
+ * @param string $foo
+ *
+ * @param bool   $bar Bar
+ * @return int  Return the number of changes.
+ */
 
-            EOF;
+EOF;
 
         return new FixerDefinition(
             'Annotations in PHPDoc should be grouped together so that annotations of the same type immediately follow each other. Annotations of a different type are separated by a single blank line.',
             [
                 new CodeSample($code),
-                new CodeSample($code, ['groups' => [
-                    ['deprecated', 'link', 'see', 'since'],
-                    ['author', 'copyright', 'license'],
-                    ['category', 'package', 'subpackage'],
-                    ['property', 'property-read', 'property-write'],
-                    ['param', 'return'],
-                ]]),
-                new CodeSample($code, ['groups' => [
-                    ['author', 'throws', 'custom'],
-                    ['return', 'param'],
-                ]]),
-                new CodeSample(
-                    <<<'EOF'
-                        <?php
-                        /**
-                         * @ORM\Id
-                         *
-                         * @ORM\GeneratedValue
-                         * @Assert\NotNull
-                         *
-                         * @Assert\Type("string")
-                         */
-
-                        EOF,
-                    ['groups' => [['ORM\*'], ['Assert\*']]],
-                ),
-                new CodeSample($code, ['skip_unlisted_annotations' => true]),
+                new CodeSample($code, ['groups' => [...TagComparator::DEFAULT_GROUPS, ['param', 'return']]]),
+                new CodeSample($code, ['groups' => [['author', 'throws', 'custom'], ['return', 'param']]]),
             ],
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function configure(array $configuration): void
     {
         parent::configure($configuration);
@@ -117,18 +86,24 @@ final class PhpdocSeparationFixer extends AbstractFixer implements ConfigurableF
      * {@inheritdoc}
      *
      * Must run before PhpdocAlignFixer.
-     * Must run after AlignMultilineCommentFixer, CommentToPhpdocFixer, GeneralPhpdocAnnotationRemoveFixer, PhpUnitInternalClassFixer, PhpUnitSizeClassFixer, PhpUnitTestClassRequiresCoversFixer, PhpdocIndentFixer, PhpdocNoAccessFixer, PhpdocNoEmptyReturnFixer, PhpdocNoPackageFixer, PhpdocOrderFixer, PhpdocScalarFixer, PhpdocToCommentFixer, PhpdocTypesFixer.
+     * Must run after AlignMultilineCommentFixer, CommentToPhpdocFixer, GeneralPhpdocAnnotationRemoveFixer, PhpdocIndentFixer, PhpdocNoAccessFixer, PhpdocNoEmptyReturnFixer, PhpdocNoPackageFixer, PhpdocOrderFixer, PhpdocScalarFixer, PhpdocToCommentFixer, PhpdocTypesFixer.
      */
     public function getPriority(): int
     {
         return -3;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_DOC_COMMENT);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         foreach ($tokens as $index => $token) {
@@ -144,9 +119,12 @@ final class PhpdocSeparationFixer extends AbstractFixer implements ConfigurableF
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
-        $allowTagToBelongToOnlyOneGroup = static function (array $groups): bool {
+        $allowTagToBelongToOnlyOneGroup = function ($groups) {
             $tags = [];
             foreach ($groups as $groupIndex => $group) {
                 foreach ($group as $member) {
@@ -171,14 +149,10 @@ final class PhpdocSeparationFixer extends AbstractFixer implements ConfigurableF
         };
 
         return new FixerConfigurationResolver([
-            (new FixerOptionBuilder('groups', 'Sets of annotation types to be grouped together. Use `*` to match any tag character.'))
+            (new FixerOptionBuilder('groups', 'Sets of annotation types to be grouped together.'))
                 ->setAllowedTypes(['string[][]'])
-                ->setDefault(self::OPTION_GROUPS_DEFAULT)
+                ->setDefault(TagComparator::DEFAULT_GROUPS)
                 ->setAllowedValues([$allowTagToBelongToOnlyOneGroup])
-                ->getOption(),
-            (new FixerOptionBuilder('skip_unlisted_annotations', 'Whether to skip annotations that are not listed in any group.'))
-                ->setAllowedTypes(['bool'])
-                ->setDefault(false) // @TODO 4.0: set to `true`.
                 ->getOption(),
         ]);
     }
@@ -217,11 +191,9 @@ final class PhpdocSeparationFixer extends AbstractFixer implements ConfigurableF
                 break;
             }
 
-            $shouldBeTogether = $this->shouldBeTogether($annotation, $next, $this->groups);
-
-            if (true === $shouldBeTogether) {
+            if (TagComparator::shouldBeTogether($annotation->getTag(), $next->getTag(), $this->groups)) {
                 $this->ensureAreTogether($doc, $annotation, $next);
-            } elseif (false === $shouldBeTogether || false === $this->configuration['skip_unlisted_annotations']) {
+            } else {
                 $this->ensureAreSeparate($doc, $annotation, $next);
             }
         }
@@ -235,7 +207,7 @@ final class PhpdocSeparationFixer extends AbstractFixer implements ConfigurableF
         $pos = $first->getEnd();
         $final = $second->getStart();
 
-        for (++$pos; $pos < $final; ++$pos) {
+        for ($pos = $pos + 1; $pos < $final; ++$pos) {
             $doc->getLine($pos)->remove();
         }
     }
@@ -255,66 +227,8 @@ final class PhpdocSeparationFixer extends AbstractFixer implements ConfigurableF
             return;
         }
 
-        for (++$pos; $pos < $final; ++$pos) {
+        for ($pos = $pos + 1; $pos < $final; ++$pos) {
             $doc->getLine($pos)->remove();
         }
-    }
-
-    /**
-     * @param list<list<string>> $groups
-     */
-    private function shouldBeTogether(Annotation $first, Annotation $second, array $groups): ?bool
-    {
-        $firstName = $this->tagName($first);
-        $secondName = $this->tagName($second);
-
-        // A tag could not be read.
-        if (null === $firstName || null === $secondName) {
-            return null;
-        }
-
-        if ($firstName === $secondName) {
-            return true;
-        }
-
-        foreach ($groups as $group) {
-            $firstTagIsInGroup = $this->isInGroup($firstName, $group);
-            $secondTagIsInGroup = $this->isInGroup($secondName, $group);
-
-            if ($firstTagIsInGroup) {
-                return $secondTagIsInGroup;
-            }
-
-            if ($secondTagIsInGroup) {
-                return false;
-            }
-        }
-
-        return null;
-    }
-
-    private function tagName(Annotation $annotation): ?string
-    {
-        Preg::match('/@([a-zA-Z0-9_\\\\-]+(?=\s|$|\())/', $annotation->getContent(), $matches);
-
-        return $matches[1] ?? null;
-    }
-
-    /**
-     * @param list<string> $group
-     */
-    private function isInGroup(string $tag, array $group): bool
-    {
-        foreach ($group as $tagInGroup) {
-            $tagInGroup = str_replace('*', '\*', $tagInGroup);
-            $tagInGroup = preg_quote($tagInGroup, '/');
-            $tagInGroup = str_replace('\\\\\*', '.*?', $tagInGroup);
-
-            if (Preg::match("/^{$tagInGroup}$/", $tag)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

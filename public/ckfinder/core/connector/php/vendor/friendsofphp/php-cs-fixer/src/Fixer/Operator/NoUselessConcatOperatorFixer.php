@@ -26,19 +26,15 @@ use PhpCsFixer\Preg;
 use PhpCsFixer\Tokenizer\Token;
 use PhpCsFixer\Tokenizer\Tokens;
 
-/**
- * @phpstan-type _ConcatOperandType array{
- *     start: int,
- *     end: int,
- *     type: self::STR_*,
- * }
- */
 final class NoUselessConcatOperatorFixer extends AbstractFixer implements ConfigurableFixerInterface
 {
     private const STR_DOUBLE_QUOTE = 0;
     private const STR_DOUBLE_QUOTE_VAR = 1;
     private const STR_SINGLE_QUOTE = 2;
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -54,18 +50,24 @@ final class NoUselessConcatOperatorFixer extends AbstractFixer implements Config
      * {@inheritdoc}
      *
      * Must run before DateTimeCreateFromFormatCallFixer, EregToPregFixer, PhpUnitDedicateAssertInternalTypeFixer, RegularCallableCallFixer, SetTypeToCastFixer.
-     * Must run after ExplicitStringVariableFixer, NoBinaryStringFixer, SingleQuoteFixer.
+     * Must run after NoBinaryStringFixer, SingleQuoteFixer.
      */
     public function getPriority(): int
     {
         return 5;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound('.') && $tokens->isAnyTokenKindsFound([T_CONSTANT_ENCAPSED_STRING, '"']);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         for ($index = $tokens->count() - 1; $index > 0; --$index) {
@@ -101,6 +103,9 @@ final class NoUselessConcatOperatorFixer extends AbstractFixer implements Config
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
@@ -112,8 +117,16 @@ final class NoUselessConcatOperatorFixer extends AbstractFixer implements Config
     }
 
     /**
-     * @param _ConcatOperandType $firstOperand
-     * @param _ConcatOperandType $secondOperand
+     * @param array{
+     *     start: int,
+     *     end: int,
+     *     type: self::STR_*,
+     * } $firstOperand
+     * @param array{
+     *     start: int,
+     *     end: int,
+     *     type: self::STR_*,
+     * } $secondOperand
      */
     private function fixConcatOperation(Tokens $tokens, array $firstOperand, int $concatIndex, array $secondOperand): void
     {
@@ -123,17 +136,13 @@ final class NoUselessConcatOperatorFixer extends AbstractFixer implements Config
             (self::STR_DOUBLE_QUOTE === $firstOperand['type'] && self::STR_DOUBLE_QUOTE === $secondOperand['type'])
             || (self::STR_SINGLE_QUOTE === $firstOperand['type'] && self::STR_SINGLE_QUOTE === $secondOperand['type'])
         ) {
-            $this->mergeConstantEscapedStringOperands($tokens, $firstOperand, $concatIndex, $secondOperand);
+            $this->mergeContantEscapedStringOperands($tokens, $firstOperand, $concatIndex, $secondOperand);
 
             return;
         }
 
         if (self::STR_DOUBLE_QUOTE_VAR === $firstOperand['type'] && self::STR_DOUBLE_QUOTE_VAR === $secondOperand['type']) {
-            if ($this->operandsCanNotBeMerged($tokens, $firstOperand, $secondOperand)) {
-                return;
-            }
-
-            $this->mergeConstantEscapedStringVarOperands($tokens, $firstOperand, $concatIndex, $secondOperand);
+            $this->mergeContantEscapedStringVarOperands($tokens, $firstOperand, $concatIndex, $secondOperand);
 
             return;
         }
@@ -149,16 +158,12 @@ final class NoUselessConcatOperatorFixer extends AbstractFixer implements Config
             [$operand1, $operand2] = $operandPair;
 
             if (self::STR_DOUBLE_QUOTE_VAR === $operand1['type'] && self::STR_DOUBLE_QUOTE === $operand2['type']) {
-                if ($this->operandsCanNotBeMerged($tokens, $operand1, $operand2)) {
-                    return;
-                }
-
-                $this->mergeConstantEscapedStringVarOperands($tokens, $firstOperand, $concatIndex, $secondOperand);
+                $this->mergeContantEscapedStringVarOperands($tokens, $firstOperand, $concatIndex, $secondOperand);
 
                 return;
             }
 
-            if (false === $this->configuration['juggle_simple_strings']) {
+            if (!$this->configuration['juggle_simple_strings']) {
                 continue;
             }
 
@@ -166,7 +171,7 @@ final class NoUselessConcatOperatorFixer extends AbstractFixer implements Config
                 $operantContent = $tokens[$operand2['start']]->getContent();
 
                 if ($this->isSimpleQuotedStringContent($operantContent)) {
-                    $this->mergeConstantEscapedStringOperands($tokens, $firstOperand, $concatIndex, $secondOperand);
+                    $this->mergeContantEscapedStringOperands($tokens, $firstOperand, $concatIndex, $secondOperand);
                 }
 
                 return;
@@ -176,11 +181,7 @@ final class NoUselessConcatOperatorFixer extends AbstractFixer implements Config
                 $operantContent = $tokens[$operand2['start']]->getContent();
 
                 if ($this->isSimpleQuotedStringContent($operantContent)) {
-                    if ($this->operandsCanNotBeMerged($tokens, $operand1, $operand2)) {
-                        return;
-                    }
-
-                    $this->mergeConstantEscapedStringVarOperands($tokens, $firstOperand, $concatIndex, $secondOperand);
+                    $this->mergeContantEscapedStringVarOperands($tokens, $firstOperand, $concatIndex, $secondOperand);
                 }
 
                 return;
@@ -191,7 +192,11 @@ final class NoUselessConcatOperatorFixer extends AbstractFixer implements Config
     /**
      * @param -1|1 $direction
      *
-     * @return null|_ConcatOperandType
+     * @return null|array{
+     *     start: int,
+     *     end: int,
+     *     type: self::STR_*,
+     * }
      */
     private function getConcatOperandType(Tokens $tokens, int $index, int $direction): ?array
     {
@@ -223,10 +228,18 @@ final class NoUselessConcatOperatorFixer extends AbstractFixer implements Config
     }
 
     /**
-     * @param _ConcatOperandType $firstOperand
-     * @param _ConcatOperandType $secondOperand
+     * @param array{
+     *     start: int,
+     *     end: int,
+     *     type: self::STR_*,
+     * } $firstOperand
+     * @param array{
+     *     start: int,
+     *     end: int,
+     *     type: self::STR_*,
+     * } $secondOperand
      */
-    private function mergeConstantEscapedStringOperands(
+    private function mergeContantEscapedStringOperands(
         Tokens $tokens,
         array $firstOperand,
         int $concatOperatorIndex,
@@ -243,21 +256,29 @@ final class NoUselessConcatOperatorFixer extends AbstractFixer implements Config
             ],
         );
 
-        $this->clearConcatAndAround($tokens, $concatOperatorIndex);
         $tokens->clearTokenAndMergeSurroundingWhitespace($secondOperand['start']);
+        $this->clearConcatAndAround($tokens, $concatOperatorIndex);
     }
 
     /**
-     * @param _ConcatOperandType $firstOperand
-     * @param _ConcatOperandType $secondOperand
+     * @param array{
+     *     start: int,
+     *     end: int,
+     *     type: self::STR_*,
+     * } $firstOperand
+     * @param array{
+     *     start: int,
+     *     end: int,
+     *     type: self::STR_*,
+     * } $secondOperand
      */
-    private function mergeConstantEscapedStringVarOperands(
+    private function mergeContantEscapedStringVarOperands(
         Tokens $tokens,
         array $firstOperand,
         int $concatOperatorIndex,
         array $secondOperand
     ): void {
-        // build up the new content
+        // build uo the new content
         $newContent = '';
 
         foreach ([$firstOperand, $secondOperand] as $operant) {
@@ -314,7 +335,7 @@ final class NoUselessConcatOperatorFixer extends AbstractFixer implements Config
 
     private function isSimpleQuotedStringContent(string $candidate): bool
     {
-        return !Preg::match('#[\$"\'\\\]#', substr($candidate, 1, -1));
+        return 0 === Preg::match('#[\$"\'\\\]#', substr($candidate, 1, -1));
     }
 
     private function containsLinebreak(Tokens $tokens, int $startIndex, int $endIndex): bool
@@ -326,37 +347,5 @@ final class NoUselessConcatOperatorFixer extends AbstractFixer implements Config
         }
 
         return false;
-    }
-
-    /**
-     * @param _ConcatOperandType $firstOperand
-     * @param _ConcatOperandType $secondOperand
-     */
-    private function operandsCanNotBeMerged(Tokens $tokens, array $firstOperand, array $secondOperand): bool
-    {
-        // If the first operand does not end with a variable, no variables would be broken by concatenation.
-        if (self::STR_DOUBLE_QUOTE_VAR !== $firstOperand['type']) {
-            return false;
-        }
-        if (!$tokens[$firstOperand['end'] - 1]->isGivenKind(T_VARIABLE)) {
-            return false;
-        }
-
-        $allowedPatternsForSecondOperand = [
-            '/^\s.*/', // e.g. " foo", ' bar', " $baz"
-            '/^-(?!\>)/', // e.g. "-foo", '-bar', "-$baz"
-        ];
-
-        // If the first operand ends with a variable, the second operand should match one of the allowed patterns.
-        // Otherwise, the concatenation can break a variable in the first operand.
-        foreach ($allowedPatternsForSecondOperand as $allowedPattern) {
-            $secondOperandInnerContent = substr($tokens->generatePartialCode($secondOperand['start'], $secondOperand['end']), 1, -1);
-
-            if (Preg::match($allowedPattern, $secondOperandInnerContent)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

@@ -12,7 +12,7 @@
 namespace Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
+use Symfony\Component\HttpKernel\Controller\ArgumentValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -22,47 +22,52 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  *
  * @author Maxime Steinhausser <maxime.steinhausser@gmail.com>
  */
-final class BackedEnumValueResolver implements ValueResolverInterface
+class BackedEnumValueResolver implements ArgumentValueResolverInterface
 {
-    public function resolve(Request $request, ArgumentMetadata $argument): iterable
+    public function supports(Request $request, ArgumentMetadata $argument): bool
     {
         if (!is_subclass_of($argument->getType(), \BackedEnum::class)) {
-            return [];
+            return false;
         }
 
         if ($argument->isVariadic()) {
             // only target route path parameters, which cannot be variadic.
-            return [];
+            return false;
         }
 
         // do not support if no value can be resolved at all
         // letting the \Symfony\Component\HttpKernel\Controller\ArgumentResolver\DefaultValueResolver be used
         // or \Symfony\Component\HttpKernel\Controller\ArgumentResolver fail with a meaningful error.
-        if (!$request->attributes->has($argument->getName())) {
-            return [];
-        }
+        return $request->attributes->has($argument->getName());
+    }
 
+    public function resolve(Request $request, ArgumentMetadata $argument): iterable
+    {
         $value = $request->attributes->get($argument->getName());
 
         if (null === $value) {
-            return [null];
+            yield null;
+
+            return;
         }
 
         if ($value instanceof \BackedEnum) {
-            return [$value];
+            yield $value;
+
+            return;
         }
 
         if (!\is_int($value) && !\is_string($value)) {
-            throw new \LogicException(sprintf('Could not resolve the "%s $%s" controller argument: expecting an int or string, got "%s".', $argument->getType(), $argument->getName(), get_debug_type($value)));
+            throw new \LogicException(sprintf('Could not resolve the "%s $%s" controller argument: expecting an int or string, got %s.', $argument->getType(), $argument->getName(), get_debug_type($value)));
         }
 
         /** @var class-string<\BackedEnum> $enumType */
         $enumType = $argument->getType();
 
         try {
-            return [$enumType::from($value)];
-        } catch (\ValueError|\TypeError $e) {
-            throw new NotFoundHttpException(sprintf('Could not resolve the "%s $%s" controller argument: ', $argument->getType(), $argument->getName()).$e->getMessage(), $e);
+            yield $enumType::from($value);
+        } catch (\ValueError $error) {
+            throw new NotFoundHttpException(sprintf('Could not resolve the "%s $%s" controller argument: %s', $argument->getType(), $argument->getName(), $error->getMessage()), $error);
         }
     }
 }

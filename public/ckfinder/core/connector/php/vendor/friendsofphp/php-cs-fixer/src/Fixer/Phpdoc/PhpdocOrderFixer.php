@@ -40,21 +40,24 @@ final class PhpdocOrderFixer extends AbstractFixer implements ConfigurableFixerI
      */
     private const ORDER_DEFAULT = ['param', 'throws', 'return'];
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         $code = <<<'EOF'
-            <?php
-            /**
-             * Hello there!
-             *
-             * @throws Exception|RuntimeException foo
-             * @custom Test!
-             * @return int  Return the number of changes.
-             * @param string $foo
-             * @param bool   $bar Bar
-             */
+<?php
+/**
+ * Hello there!
+ *
+ * @throws Exception|RuntimeException foo
+ * @custom Test!
+ * @return int  Return the number of changes.
+ * @param string $foo
+ * @param bool   $bar Bar
+ */
 
-            EOF;
+EOF;
 
         return new FixerDefinition(
             'Annotations in PHPDoc should be ordered in defined sequence.',
@@ -67,6 +70,9 @@ final class PhpdocOrderFixer extends AbstractFixer implements ConfigurableFixerI
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_DOC_COMMENT);
@@ -83,12 +89,15 @@ final class PhpdocOrderFixer extends AbstractFixer implements ConfigurableFixerI
         return -2;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
             (new FixerOptionBuilder('order', 'Sequence in which annotations in PHPDoc should be ordered.'))
                 ->setAllowedTypes(['string[]'])
-                ->setAllowedValues([static function (array $order): bool {
+                ->setAllowedValues([function ($order) {
                     if (\count($order) < 2) {
                         throw new InvalidOptionsException('The option "order" value is invalid. Minimum two tags are required.');
                     }
@@ -100,6 +109,9 @@ final class PhpdocOrderFixer extends AbstractFixer implements ConfigurableFixerI
         ]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         foreach ($tokens as $index => $token) {

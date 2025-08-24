@@ -6,10 +6,19 @@ namespace League\Flysystem\Ftp;
 
 class ConnectivityCheckerThatCanFail implements ConnectivityChecker
 {
-    private bool $failNextCall = false;
+    /**
+     * @var bool
+     */
+    private $failNextCall = false;
 
-    public function __construct(private ConnectivityChecker $connectivityChecker)
+    /**
+     * @var ConnectivityChecker
+     */
+    private $connectivityChecker;
+
+    public function __construct(ConnectivityChecker $connectivityChecker)
     {
+        $this->connectivityChecker = $connectivityChecker;
     }
 
     public function failNextCall(): void

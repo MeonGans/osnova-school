@@ -33,7 +33,7 @@ final class FixerOptionBuilder
     private $allowedTypes;
 
     /**
-     * @var null|list<null|(callable(mixed): bool)|scalar>
+     * @var null|list<(callable(mixed): bool)|null|scalar>
      */
     private $allowedValues;
 
@@ -79,7 +79,7 @@ final class FixerOptionBuilder
     }
 
     /**
-     * @param list<null|(callable(mixed): bool)|scalar> $allowedValues
+     * @param list<(callable(mixed): bool)|null|scalar> $allowedValues
      *
      * @return $this
      */

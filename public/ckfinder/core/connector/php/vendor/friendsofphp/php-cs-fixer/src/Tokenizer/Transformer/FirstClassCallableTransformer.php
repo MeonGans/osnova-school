@@ -24,11 +24,17 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class FirstClassCallableTransformer extends AbstractTransformer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getRequiredPhpVersionId(): int
     {
-        return 8_01_00;
+        return 80100;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function process(Tokens $tokens, Token $token, int $index): void
     {
         if (
@@ -40,6 +46,9 @@ final class FirstClassCallableTransformer extends AbstractTransformer
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getCustomTokens(): array
     {
         return [

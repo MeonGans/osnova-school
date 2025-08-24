@@ -24,6 +24,9 @@ use PhpCsFixer\Tokenizer\Tokens;
 
 final class FopenFlagOrderFixer extends AbstractFopenFlagFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -85,9 +88,9 @@ final class FopenFlagOrderFixer extends AbstractFopenFlagFixer
     }
 
     /**
-     * @param list<string> $flags
+     * @param string[] $flags
      *
-     * @return list<string>
+     * @return string[]
      */
     private function sortFlags(array $flags): array
     {

@@ -35,7 +35,7 @@ abstract class Extension extends BaseExtension
      *
      * @param array $annotatedClasses An array of class patterns
      */
-    public function addAnnotatedClassesToCompile(array $annotatedClasses): void
+    public function addAnnotatedClassesToCompile(array $annotatedClasses)
     {
         $this->annotatedClasses = array_merge($this->annotatedClasses, $annotatedClasses);
     }

@@ -30,6 +30,9 @@ final class NoMultipleStatementsPerLineFixer extends AbstractFixer implements Wh
 {
     use Indentation;
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -41,19 +44,24 @@ final class NoMultipleStatementsPerLineFixer extends AbstractFixer implements Wh
     /**
      * {@inheritdoc}
      *
-     * Must run before BracesPositionFixer, CurlyBracesPositionFixer.
-     * Must run after ControlStructureBracesFixer, NoEmptyStatementFixer, YieldFromArrayToYieldsFixer.
+     * Must run after ControlStructureBracesFixer, NoEmptyStatementFixer.
      */
     public function getPriority(): int
     {
         return -1;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(';');
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         for ($index = 1, $max = \count($tokens) - 1; $index < $max; ++$index) {
@@ -74,7 +82,7 @@ final class NoMultipleStatementsPerLineFixer extends AbstractFixer implements Wh
                 $token = $tokens[$nextIndex];
 
                 if ($token->isWhitespace() || $token->isComment()) {
-                    if (Preg::match('/\R/', $token->getContent())) {
+                    if (1 === Preg::match('/\R/', $token->getContent())) {
                         break;
                     }
 

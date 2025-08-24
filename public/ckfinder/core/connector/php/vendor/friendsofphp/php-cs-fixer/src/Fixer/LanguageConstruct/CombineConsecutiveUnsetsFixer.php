@@ -23,6 +23,9 @@ use PhpCsFixer\Tokenizer\Tokens;
 
 final class CombineConsecutiveUnsetsFixer extends AbstractFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -42,11 +45,17 @@ final class CombineConsecutiveUnsetsFixer extends AbstractFixer
         return 24;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_UNSET);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         for ($index = $tokens->count() - 1; $index >= 0; --$index) {

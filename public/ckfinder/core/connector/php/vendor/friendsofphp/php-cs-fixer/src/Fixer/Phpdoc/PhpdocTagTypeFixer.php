@@ -40,11 +40,17 @@ final class PhpdocTagTypeFixer extends AbstractFixer implements ConfigurableFixe
         )}
     )$/x';
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_DOC_COMMENT);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -72,6 +78,9 @@ final class PhpdocTagTypeFixer extends AbstractFixer implements ConfigurableFixe
         return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         if (0 === \count($this->configuration['tags'])) {
@@ -81,7 +90,9 @@ final class PhpdocTagTypeFixer extends AbstractFixer implements ConfigurableFixe
         $regularExpression = sprintf(
             '/({?@(?:%s).*?(?:(?=\s\*\/)|(?=\n)}?))/i',
             implode('|', array_map(
-                static fn (string $tag): string => preg_quote($tag, '/'),
+                static function (string $tag): string {
+                    return preg_quote($tag, '/');
+                },
                 array_keys($this->configuration['tags'])
             ))
         );
@@ -131,10 +142,13 @@ final class PhpdocTagTypeFixer extends AbstractFixer implements ConfigurableFixe
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
-            (new FixerOptionBuilder('tags', 'The list of tags to fix.'))
+            (new FixerOptionBuilder('tags', 'The list of tags to fix'))
                 ->setAllowedTypes(['array'])
                 ->setAllowedValues([static function (array $value): bool {
                     foreach ($value as $type) {
@@ -168,7 +182,7 @@ final class PhpdocTagTypeFixer extends AbstractFixer implements ConfigurableFixe
                     'var' => 'annotation',
                     'version' => 'annotation',
                 ])
-                ->setNormalizer(static function (Options $options, array $value): array {
+                ->setNormalizer(static function (Options $options, $value): array {
                     $normalized = [];
 
                     foreach ($value as $tag => $type) {
@@ -188,7 +202,8 @@ final class PhpdocTagTypeFixer extends AbstractFixer implements ConfigurableFixe
     {
         return
             Preg::match('/(^|\R)\h*[^@\s]\N*/', $this->cleanComment($parts[$index - 1]))
-            || Preg::match('/^.*?\R\s*[^@\s]/', $this->cleanComment($parts[$index + 1]));
+            || Preg::match('/^.*?\R\s*[^@\s]/', $this->cleanComment($parts[$index + 1]))
+        ;
     }
 
     private function cleanComment(string $comment): string

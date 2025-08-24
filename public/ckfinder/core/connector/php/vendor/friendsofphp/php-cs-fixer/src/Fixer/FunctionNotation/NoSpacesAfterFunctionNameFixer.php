@@ -29,11 +29,14 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class NoSpacesAfterFunctionNameFixer extends AbstractFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
             'When making a method or function call, there MUST NOT be a space between the method or function name and the opening parenthesis.',
-            [new CodeSample("<?php\nstrlen ('Hello World!');\nfoo (test (3));\nexit  (1);\n\$func ();\n")]
+            [new CodeSample("<?php\nrequire ('sample.php');\necho (test (3));\nexit  (1);\n\$func ();\n")]
         );
     }
 
@@ -45,14 +48,20 @@ final class NoSpacesAfterFunctionNameFixer extends AbstractFixer
      */
     public function getPriority(): int
     {
-        return 3;
+        return 2;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
-        return $tokens->isAnyTokenKindsFound([T_STRING, ...$this->getFunctionyTokenKinds()]);
+        return $tokens->isAnyTokenKindsFound(array_merge($this->getFunctionyTokenKinds(), [T_STRING]));
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $functionyTokens = $this->getFunctionyTokenKinds();
@@ -73,7 +82,7 @@ final class NoSpacesAfterFunctionNameFixer extends AbstractFixer
             $nextNonWhiteSpace = $tokens->getNextMeaningfulToken($endParenthesisIndex);
             if (
                 null !== $nextNonWhiteSpace
-                && !$tokens[$nextNonWhiteSpace]->equals(';')
+                && $tokens[$nextNonWhiteSpace]->equals('?')
                 && $tokens[$lastTokenIndex]->isGivenKind($languageConstructionTokens)
             ) {
                 continue;
@@ -116,22 +125,24 @@ final class NoSpacesAfterFunctionNameFixer extends AbstractFixer
     }
 
     /**
-     * @return list<array{int}|string>
+     * @return array<list<int>|string>
      */
     private function getBraceAfterVariableKinds(): array
     {
-        return [
+        static $tokens = [
             ')',
             ']',
             [CT::T_DYNAMIC_VAR_BRACE_CLOSE],
             [CT::T_ARRAY_INDEX_CURLY_BRACE_CLOSE],
         ];
+
+        return $tokens;
     }
 
     /**
      * Gets the token kinds which can work as function calls.
      *
-     * @return list<int> Token names
+     * @return int[] Token names
      */
     private function getFunctionyTokenKinds(): array
     {

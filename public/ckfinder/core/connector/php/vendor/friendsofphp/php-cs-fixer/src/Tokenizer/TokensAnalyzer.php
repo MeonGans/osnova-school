@@ -26,8 +26,6 @@ use PhpCsFixer\Tokenizer\Analyzer\GotoLabelAnalyzer;
  * @author Gregor Harlan <gharlan@web.de>
  *
  * @internal
- *
- * @phpstan-type _ClassyElementType 'case'|'const'|'method'|'property'|'trait_import'
  */
 final class TokensAnalyzer
 {
@@ -46,7 +44,7 @@ final class TokensAnalyzer
     /**
      * Get indices of methods and properties in classy code (classes, interfaces and traits).
      *
-     * @return array<int, array{classIndex: int, token: Token, type: _ClassyElementType}>
+     * @return array<int, array{classIndex: int, token: Token, type: string}>
      */
     public function getClassyElements(): array
     {
@@ -62,41 +60,6 @@ final class TokensAnalyzer
         ksort($elements);
 
         return $elements;
-    }
-
-    /**
-     * Get indices of modifiers of a classy code (classes, interfaces and traits).
-     *
-     * @return array{
-     *     final: int|null,
-     *     abstract: int|null,
-     *     readonly: int|null
-     * }
-     */
-    public function getClassyModifiers(int $index): array
-    {
-        if (!$this->tokens[$index]->isClassy()) {
-            throw new \InvalidArgumentException(sprintf('Not an "classy" at given index %d.', $index));
-        }
-
-        $readOnlyPossible = \defined('T_READONLY'); // @TODO: drop condition when PHP 8.2+ is required
-        $modifiers = ['final' => null, 'abstract' => null, 'readonly' => null];
-
-        while (true) {
-            $index = $this->tokens->getPrevMeaningfulToken($index);
-
-            if ($this->tokens[$index]->isGivenKind(T_FINAL)) {
-                $modifiers['final'] = $index;
-            } elseif ($this->tokens[$index]->isGivenKind(T_ABSTRACT)) {
-                $modifiers['abstract'] = $index;
-            } elseif ($readOnlyPossible && $this->tokens[$index]->isGivenKind(T_READONLY)) {
-                $modifiers['readonly'] = $index;
-            } else { // no need to skip attributes as it is not possible on PHP8.2
-                break;
-            }
-        }
-
-        return $modifiers;
     }
 
     /**
@@ -212,8 +175,11 @@ final class TokensAnalyzer
      */
     public function getMethodAttributes(int $index): array
     {
-        if (!$this->tokens[$index]->isGivenKind(T_FUNCTION)) {
-            throw new \LogicException(sprintf('No T_FUNCTION at given index %d, got "%s".', $index, $this->tokens[$index]->getName()));
+        $tokens = $this->tokens;
+        $token = $tokens[$index];
+
+        if (!$token->isGivenKind(T_FUNCTION)) {
+            throw new \LogicException(sprintf('No T_FUNCTION at given index %d, got "%s".', $index, $token->getName()));
         }
 
         $attributes = [
@@ -224,8 +190,10 @@ final class TokensAnalyzer
         ];
 
         for ($i = $index; $i >= 0; --$i) {
-            $i = $this->tokens->getPrevMeaningfulToken($i);
-            $token = $this->tokens[$i];
+            $tokenIndex = $tokens->getPrevMeaningfulToken($i);
+
+            $i = $tokenIndex;
+            $token = $tokens[$tokenIndex];
 
             if ($token->isGivenKind(T_STATIC)) {
                 $attributes['static'] = true;
@@ -288,10 +256,6 @@ final class TokensAnalyzer
 
         $index = $this->tokens->getPrevMeaningfulToken($index);
 
-        if (\defined('T_READONLY') && $this->tokens[$index]->isGivenKind(T_READONLY)) { // @TODO: drop condition when PHP 8.1+ is required
-            $index = $this->tokens->getPrevMeaningfulToken($index);
-        }
-
         while ($this->tokens[$index]->isGivenKind(CT::T_ATTRIBUTE_CLOSE)) {
             $index = $this->tokens->findBlockStart(Tokens::BLOCK_TYPE_ATTRIBUTE, $index);
             $index = $this->tokens->getPrevMeaningfulToken($index);
@@ -319,40 +283,6 @@ final class TokensAnalyzer
         }
 
         return $startParenthesisToken->equals('(');
-    }
-
-    public function getLastTokenIndexOfArrowFunction(int $index): int
-    {
-        if (!$this->tokens[$index]->isGivenKind(T_FN)) {
-            throw new \InvalidArgumentException(sprintf('Not an "arrow function" at given index %d.', $index));
-        }
-
-        $stopTokens = [')', ']', ',', ';', [T_CLOSE_TAG]];
-        $index = $this->tokens->getNextTokenOfKind($index, [[T_DOUBLE_ARROW]]);
-
-        while (true) {
-            $index = $this->tokens->getNextMeaningfulToken($index);
-
-            if ($this->tokens[$index]->equalsAny($stopTokens)) {
-                break;
-            }
-
-            $blockType = Tokens::detectBlockType($this->tokens[$index]);
-
-            if (null === $blockType) {
-                continue;
-            }
-
-            if ($blockType['isStart']) {
-                $index = $this->tokens->findBlockEnd($blockType['type'], $index);
-
-                continue;
-            }
-
-            break;
-        }
-
-        return $this->tokens->getPrevMeaningfulToken($index);
     }
 
     /**
@@ -383,7 +313,7 @@ final class TokensAnalyzer
             $prevIndex = $this->tokens->getPrevMeaningfulToken($prevIndex);
         }
 
-        if ($this->tokens[$prevIndex]->isGivenKind([CT::T_CONST_IMPORT, T_EXTENDS, CT::T_FUNCTION_IMPORT, T_IMPLEMENTS, T_INSTANCEOF, T_INSTEADOF, T_NAMESPACE, T_NEW, CT::T_NULLABLE_TYPE, CT::T_TYPE_COLON, T_USE, CT::T_USE_TRAIT, CT::T_TYPE_INTERSECTION, CT::T_TYPE_ALTERNATION, T_CONST, CT::T_DISJUNCTIVE_NORMAL_FORM_TYPE_PARENTHESIS_CLOSE])) {
+        if ($this->tokens[$prevIndex]->isGivenKind([CT::T_CONST_IMPORT, T_EXTENDS, CT::T_FUNCTION_IMPORT, T_IMPLEMENTS, T_INSTANCEOF, T_INSTEADOF, T_NAMESPACE, T_NEW, CT::T_NULLABLE_TYPE, CT::T_TYPE_COLON, T_USE, CT::T_USE_TRAIT])) {
             return false;
         }
 
@@ -554,15 +484,13 @@ final class TokensAnalyzer
             ';',
             '{',
             '}',
-            [T_DOUBLE_ARROW],
-            [T_FN],
             [T_FUNCTION],
             [T_OPEN_TAG],
             [T_OPEN_TAG_WITH_ECHO],
         ];
         $prevToken = $tokens[$tokens->getPrevTokenOfKind($index, $searchTokens)];
 
-        return $prevToken->isGivenKind([T_FN, T_FUNCTION]);
+        return $prevToken->isGivenKind(T_FUNCTION);
     }
 
     /**
@@ -671,31 +599,6 @@ final class TokensAnalyzer
         return $tokens[$beforeStartIndex]->isGivenKind(T_DO);
     }
 
-    /**
-     * @throws \LogicException when provided index does not point to token containing T_CASE
-     */
-    public function isEnumCase(int $caseIndex): bool
-    {
-        $tokens = $this->tokens;
-        $token = $tokens[$caseIndex];
-
-        if (!$token->isGivenKind(T_CASE)) {
-            throw new \LogicException(sprintf(
-                'No T_CASE given at index %d, got %s instead.',
-                $caseIndex,
-                $token->getName() ?? $token->getContent()
-            ));
-        }
-
-        if (!\defined('T_ENUM') || !$tokens->isTokenKindFound(T_ENUM)) {
-            return false;
-        }
-
-        $prevIndex = $tokens->getPrevTokenOfKind($caseIndex, [[T_ENUM], [T_SWITCH]]);
-
-        return null !== $prevIndex && $tokens[$prevIndex]->isGivenKind(T_ENUM);
-    }
-
     public function isSuperGlobal(int $index): bool
     {
         static $superNames = [
@@ -727,7 +630,7 @@ final class TokensAnalyzer
      *
      * @param int $classIndex classy index
      *
-     * @return array{int, array<int, array{classIndex: int, token: Token, type: _ClassyElementType}>}
+     * @return array{int, array<int, array{classIndex: int, token: Token, type: string}>}
      */
     private function findClassyElements(int $classIndex, int $index): array
     {

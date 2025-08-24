@@ -28,6 +28,9 @@ use PhpCsFixer\Tokenizer\Tokens;
 
 final class SpaceAfterSemicolonFixer extends AbstractFixer implements ConfigurableFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -57,11 +60,17 @@ final class SpaceAfterSemicolonFixer extends AbstractFixer implements Configurab
         return -1;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(';');
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
@@ -72,6 +81,9 @@ final class SpaceAfterSemicolonFixer extends AbstractFixer implements Configurab
         ]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $insideForParenthesesUntil = null;

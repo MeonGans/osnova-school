@@ -31,6 +31,9 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class NoSpacesAroundOffsetFixer extends AbstractFixer implements ConfigurableFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -43,11 +46,17 @@ final class NoSpacesAroundOffsetFixer extends AbstractFixer implements Configura
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isAnyTokenKindsFound(['[', CT::T_ARRAY_INDEX_CURLY_BRACE_OPEN]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         foreach ($tokens as $index => $token) {
@@ -84,6 +93,9 @@ final class NoSpacesAroundOffsetFixer extends AbstractFixer implements Configura
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         $values = ['inside', 'outside'];

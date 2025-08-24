@@ -19,6 +19,7 @@ use PhpCsFixer\Fixer\DeprecatedFixerInterface;
 use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
+use PhpCsFixer\Tokenizer\Analyzer\NamespacesAnalyzer;
 use PhpCsFixer\Tokenizer\CT;
 use PhpCsFixer\Tokenizer\Token;
 use PhpCsFixer\Tokenizer\Tokens;
@@ -36,6 +37,9 @@ final class ClassKeywordRemoveFixer extends AbstractFixer implements DeprecatedF
      */
     private array $imports = [];
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -53,6 +57,9 @@ $className = Baz::class;
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getSuccessorsNames(): array
     {
         return [];
@@ -68,15 +75,23 @@ $className = Baz::class;
         return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(CT::T_CLASS_CONSTANT);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
+        $namespacesAnalyzer = new NamespacesAnalyzer();
+
         $previousNamespaceScopeEndIndex = 0;
-        foreach ($tokens->getNamespaceDeclarations() as $declaration) {
+        foreach ($namespacesAnalyzer->getDeclarations($tokens) as $declaration) {
             $this->replaceClassKeywordsSection($tokens, '', $previousNamespaceScopeEndIndex, $declaration->getStartIndex());
             $this->replaceClassKeywordsSection($tokens, $declaration->getFullName(), $declaration->getStartIndex(), $declaration->getScopeEndIndex());
             $previousNamespaceScopeEndIndex = $declaration->getScopeEndIndex();
@@ -109,11 +124,15 @@ $className = Baz::class;
             if ($tokens[$index]->isGivenKind(CT::T_GROUP_IMPORT_BRACE_OPEN)) {
                 $groupEndIndex = $tokens->findBlockEnd(Tokens::BLOCK_TYPE_GROUP_IMPORT_BRACE, $index);
                 $groupImports = array_map(
-                    static fn (string $import): string => trim($import),
+                    static function (string $import): string {
+                        return trim($import);
+                    },
                     explode(',', $tokens->generatePartialCode($index + 1, $groupEndIndex - 1))
                 );
                 foreach ($groupImports as $groupImport) {
-                    $groupImportParts = array_map(static fn (string $import): string => trim($import), explode(' as ', $groupImport));
+                    $groupImportParts = array_map(static function (string $import): string {
+                        return trim($import);
+                    }, explode(' as ', $groupImport));
                     if (2 === \count($groupImportParts)) {
                         $this->imports[$groupImportParts[1]] = $import.$groupImportParts[0];
                     } else {
@@ -188,7 +207,7 @@ $className = Baz::class;
                 $classStringArray = explode('\\', $classString);
                 $namespaceToTest = $classStringArray[0];
 
-                if (0 === ($namespaceToTest <=> substr($import, -\strlen($namespaceToTest)))) {
+                if (0 === strcmp($namespaceToTest, substr($import, -\strlen($namespaceToTest)))) {
                     $classImport = $import;
 
                     break;

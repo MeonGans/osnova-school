@@ -26,7 +26,6 @@ use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
 use PhpCsFixer\Tokenizer\Token;
 use PhpCsFixer\Tokenizer\Tokens;
 use PhpCsFixer\Tokenizer\TokensAnalyzer;
-use PhpCsFixer\Utils;
 use Symfony\Component\OptionsResolver\Exception\InvalidOptionsException;
 use Symfony\Component\OptionsResolver\Options;
 
@@ -41,6 +40,9 @@ final class PhpdocReturnSelfReferenceFixer extends AbstractFixer implements Conf
         'self',
     ];
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -95,6 +97,9 @@ class Sample
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return \count($tokens) > 10 && $tokens->isAllTokenKindsFound([T_DOC_COMMENT, T_FUNCTION]) && $tokens->isAnyTokenKindsFound(Token::getClassyTokenKinds());
@@ -111,6 +116,9 @@ class Sample
         return 10;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $tokensAnalyzer = new TokensAnalyzer($tokens);
@@ -122,6 +130,9 @@ class Sample
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         $default = [
@@ -146,17 +157,17 @@ class Sample
 
                         if (!isset($default[$from])) {
                             throw new InvalidOptionsException(sprintf(
-                                'Unknown key "%s", expected any of %s.',
+                                'Unknown key "%s", expected any of "%s".',
                                 \gettype($from).'#'.$from,
-                                Utils::naturalLanguageJoin(array_keys($default))
+                                implode('", "', array_keys($default))
                             ));
                         }
 
                         if (!\in_array($to, self::$toTypes, true)) {
                             throw new InvalidOptionsException(sprintf(
-                                'Unknown value "%s", expected any of %s.',
+                                'Unknown value "%s", expected any of "%s".',
                                 \is_object($to) ? \get_class($to) : \gettype($to).(\is_resource($to) ? '' : '#'.$to),
-                                Utils::naturalLanguageJoin(self::$toTypes)
+                                implode('", "', self::$toTypes)
                             ));
                         }
 

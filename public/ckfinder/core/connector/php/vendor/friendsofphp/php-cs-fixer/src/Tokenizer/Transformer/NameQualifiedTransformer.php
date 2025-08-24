@@ -15,7 +15,6 @@ declare(strict_types=1);
 namespace PhpCsFixer\Tokenizer\Transformer;
 
 use PhpCsFixer\Tokenizer\AbstractTransformer;
-use PhpCsFixer\Tokenizer\Processor\ImportProcessor;
 use PhpCsFixer\Tokenizer\Token;
 use PhpCsFixer\Tokenizer\Tokens;
 
@@ -26,16 +25,25 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class NameQualifiedTransformer extends AbstractTransformer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getPriority(): int
     {
         return 1; // must run before NamespaceOperatorTransformer
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getRequiredPhpVersionId(): int
     {
-        return 8_00_00;
+        return 80000;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function process(Tokens $tokens, Token $token, int $index): void
     {
         if ($token->isGivenKind([T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED])) {
@@ -45,6 +53,9 @@ final class NameQualifiedTransformer extends AbstractTransformer
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getCustomTokens(): array
     {
         return [];
@@ -52,15 +63,38 @@ final class NameQualifiedTransformer extends AbstractTransformer
 
     private function transformQualified(Tokens $tokens, Token $token, int $index): void
     {
-        $newTokens = ImportProcessor::tokenizeName($token->getContent());
+        $parts = explode('\\', $token->getContent());
+        $newTokens = [];
+
+        if ('' === $parts[0]) {
+            $newTokens[] = new Token([T_NS_SEPARATOR, '\\']);
+            array_shift($parts);
+        }
+
+        foreach ($parts as $part) {
+            $newTokens[] = new Token([T_STRING, $part]);
+            $newTokens[] = new Token([T_NS_SEPARATOR, '\\']);
+        }
+
+        array_pop($newTokens);
 
         $tokens->overrideRange($index, $index, $newTokens);
     }
 
     private function transformRelative(Tokens $tokens, Token $token, int $index): void
     {
-        $newTokens = ImportProcessor::tokenizeName($token->getContent());
-        $newTokens[0] = new Token([T_NAMESPACE, 'namespace']);
+        $parts = explode('\\', $token->getContent());
+        $newTokens = [
+            new Token([T_NAMESPACE, array_shift($parts)]),
+            new Token([T_NS_SEPARATOR, '\\']),
+        ];
+
+        foreach ($parts as $part) {
+            $newTokens[] = new Token([T_STRING, $part]);
+            $newTokens[] = new Token([T_NS_SEPARATOR, '\\']);
+        }
+
+        array_pop($newTokens);
 
         $tokens->overrideRange($index, $index, $newTokens);
     }

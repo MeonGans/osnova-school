@@ -29,6 +29,9 @@ use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
  */
 final class NoTrailingCommaInSinglelineArrayFixer extends AbstractProxyFixer implements DeprecatedFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -37,11 +40,17 @@ final class NoTrailingCommaInSinglelineArrayFixer extends AbstractProxyFixer imp
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getSuccessorsNames(): array
     {
         return array_keys($this->proxyFixers);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createProxyFixers(): array
     {
         $fixer = new NoTrailingCommaInSinglelineFixer();

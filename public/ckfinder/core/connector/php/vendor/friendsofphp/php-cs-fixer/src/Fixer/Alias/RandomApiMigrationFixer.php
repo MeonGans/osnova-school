@@ -43,6 +43,9 @@ final class RandomApiMigrationFixer extends AbstractFunctionReferenceFixer imple
         'random_int' => [0, 2],
     ];
 
+    /**
+     * {@inheritdoc}
+     */
     public function configure(array $configuration): void
     {
         parent::configure($configuration);
@@ -55,6 +58,9 @@ final class RandomApiMigrationFixer extends AbstractFunctionReferenceFixer imple
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -75,6 +81,9 @@ final class RandomApiMigrationFixer extends AbstractFunctionReferenceFixer imple
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $argumentsAnalyzer = new ArgumentsAnalyzer();
@@ -122,6 +131,9 @@ final class RandomApiMigrationFixer extends AbstractFunctionReferenceFixer imple
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([

@@ -27,6 +27,9 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class BlankLineAfterOpeningTagFixer extends AbstractFixer implements WhitespacesAwareFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -38,7 +41,7 @@ final class BlankLineAfterOpeningTagFixer extends AbstractFixer implements White
     /**
      * {@inheritdoc}
      *
-     * Must run before BlankLinesBeforeNamespaceFixer, NoBlankLinesBeforeNamespaceFixer.
+     * Must run before NoBlankLinesBeforeNamespaceFixer.
      * Must run after DeclareStrictTypesFixer.
      */
     public function getPriority(): int
@@ -46,18 +49,31 @@ final class BlankLineAfterOpeningTagFixer extends AbstractFixer implements White
         return 1;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
-        return $tokens->isMonolithicPhp() && !$tokens->isTokenKindFound(T_OPEN_TAG_WITH_ECHO);
+        return $tokens->isTokenKindFound(T_OPEN_TAG);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $lineEnding = $this->whitespacesConfig->getLineEnding();
 
+        // ignore files with short open tag and ignore non-monolithic files
+        if (!$tokens[0]->isGivenKind(T_OPEN_TAG) || !$tokens->isMonolithicPhp()) {
+            return;
+        }
+
         $newlineFound = false;
+
+        /** @var Token $token */
         foreach ($tokens as $token) {
-            if (($token->isWhitespace() || $token->isGivenKind(T_OPEN_TAG)) && str_contains($token->getContent(), "\n")) {
+            if ($token->isWhitespace() && str_contains($token->getContent(), "\n")) {
                 $newlineFound = true;
 
                 break;
@@ -69,19 +85,17 @@ final class BlankLineAfterOpeningTagFixer extends AbstractFixer implements White
             return;
         }
 
-        $openTagIndex = $tokens[0]->isGivenKind(T_INLINE_HTML) ? 1 : 0;
-        $token = $tokens[$openTagIndex];
+        $token = $tokens[0];
 
         if (!str_contains($token->getContent(), "\n")) {
-            $tokens[$openTagIndex] = new Token([$token->getId(), rtrim($token->getContent()).$lineEnding]);
+            $tokens[0] = new Token([$token->getId(), rtrim($token->getContent()).$lineEnding]);
         }
 
-        $newLineIndex = $openTagIndex + 1;
-        if (isset($tokens[$newLineIndex]) && !str_contains($tokens[$newLineIndex]->getContent(), "\n")) {
-            if ($tokens[$newLineIndex]->isWhitespace()) {
-                $tokens[$newLineIndex] = new Token([T_WHITESPACE, $lineEnding.$tokens[$newLineIndex]->getContent()]);
+        if (!str_contains($tokens[1]->getContent(), "\n")) {
+            if ($tokens[1]->isWhitespace()) {
+                $tokens[1] = new Token([T_WHITESPACE, $lineEnding.$tokens[1]->getContent()]);
             } else {
-                $tokens->insertAt($newLineIndex, new Token([T_WHITESPACE, $lineEnding]));
+                $tokens->insertAt(1, new Token([T_WHITESPACE, $lineEnding]));
             }
         }
     }

@@ -44,10 +44,13 @@ final class YodaStyleFixer extends AbstractFixer implements ConfigurableFixerInt
     private $candidateTypesConfiguration;
 
     /**
-     * @var list<int|string>
+     * @var array<int|string>
      */
     private $candidateTypes;
 
+    /**
+     * {@inheritdoc}
+     */
     public function configure(array $configuration): void
     {
         parent::configure($configuration);
@@ -55,6 +58,9 @@ final class YodaStyleFixer extends AbstractFixer implements ConfigurableFixerInt
         $this->resolveConfiguration();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -114,16 +120,25 @@ return $foo === count($bar);
         return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isAnyTokenKindsFound($this->candidateTypes);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $this->fixTokens($tokens);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
@@ -345,18 +360,14 @@ return $foo === count($bar);
         return $newTokens;
     }
 
-    /**
-     * @return null|array{left: array{start: int, end: int}, right: array{start: int, end: int}}
-     */
     private function getCompareFixableInfo(Tokens $tokens, int $index, bool $yoda): ?array
     {
+        $left = $this->getLeftSideCompareFixableInfo($tokens, $index);
         $right = $this->getRightSideCompareFixableInfo($tokens, $index);
 
         if (!$yoda && $this->isOfLowerPrecedenceAssignment($tokens[$tokens->getNextMeaningfulToken($right['end'])])) {
             return null;
         }
-
-        $left = $this->getLeftSideCompareFixableInfo($tokens, $index);
 
         if ($this->isListStatement($tokens, $left['start'], $left['end']) || $this->isListStatement($tokens, $right['start'], $right['end'])) {
             return null; // do not fix lists assignment inside statements
@@ -367,7 +378,7 @@ return $foo === count($bar);
         $leftSideIsVariable = $this->isVariable($tokens, $left['start'], $left['end'], $strict);
         $rightSideIsVariable = $this->isVariable($tokens, $right['start'], $right['end'], $strict);
 
-        if (!($leftSideIsVariable xor $rightSideIsVariable)) {
+        if (!($leftSideIsVariable ^ $rightSideIsVariable)) {
             return null; // both are (not) variables, do not touch
         }
 
@@ -378,7 +389,8 @@ return $foo === count($bar);
 
         return ($yoda && !$leftSideIsVariable) || (!$yoda && !$rightSideIsVariable)
             ? null
-            : ['left' => $left, 'right' => $right];
+            : ['left' => $left, 'right' => $right]
+        ;
     }
 
     /**
@@ -444,11 +456,6 @@ return $foo === count($bar);
                 T_THROW,        // throw
                 T_COALESCE,
                 T_YIELD,        // yield
-                T_YIELD_FROM,
-                T_REQUIRE,
-                T_REQUIRE_ONCE,
-                T_INCLUDE,
-                T_INCLUDE_ONCE,
             ];
         }
 

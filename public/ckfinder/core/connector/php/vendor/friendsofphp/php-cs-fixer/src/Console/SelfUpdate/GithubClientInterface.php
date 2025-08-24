@@ -20,7 +20,12 @@ namespace PhpCsFixer\Console\SelfUpdate;
 interface GithubClientInterface
 {
     /**
-     * @return list<string>
+     * @return list<array{
+     *     name: string,
+     *     zipball_url: string,
+     *     tarball_url: string,
+     *     commit: array{sha: string, url: string},
+     * }>
      */
     public function getTags(): array;
 }

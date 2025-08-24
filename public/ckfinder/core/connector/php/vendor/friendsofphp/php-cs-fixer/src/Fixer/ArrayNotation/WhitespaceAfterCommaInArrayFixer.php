@@ -32,6 +32,9 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class WhitespaceAfterCommaInArrayFixer extends AbstractFixer implements ConfigurableFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -43,11 +46,17 @@ final class WhitespaceAfterCommaInArrayFixer extends AbstractFixer implements Co
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isAnyTokenKindsFound([T_ARRAY, CT::T_ARRAY_SQUARE_BRACE_OPEN]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
@@ -58,6 +67,9 @@ final class WhitespaceAfterCommaInArrayFixer extends AbstractFixer implements Co
         ]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $tokensToInsert = [];
@@ -83,10 +95,10 @@ final class WhitespaceAfterCommaInArrayFixer extends AbstractFixer implements Co
                 if (!$tokens[$i + 1]->isWhitespace()) {
                     $tokensToInsert[$i + 1] = new Token([T_WHITESPACE, ' ']);
                 } elseif (
-                    true === $this->configuration['ensure_single_space']
+                    $this->configuration['ensure_single_space']
                     && ' ' !== $tokens[$i + 1]->getContent()
-                    && Preg::match('/^\h+$/', $tokens[$i + 1]->getContent())
-                    && (!$tokens[$i + 2]->isComment() || Preg::match('/^\h+$/', $tokens[$i + 3]->getContent()))
+                    && 1 === Preg::match('/^\h+$/', $tokens[$i + 1]->getContent())
+                    && (!$tokens[$i + 2]->isComment() || 1 === Preg::match('/^\h+$/', $tokens[$i + 3]->getContent()))
                 ) {
                     $tokens[$i + 1] = new Token([T_WHITESPACE, ' ']);
                 }

@@ -38,6 +38,9 @@ final class PhpUnitExpectationFixer extends AbstractPhpUnitFixer implements Conf
      */
     private array $methodMap = [];
 
+    /**
+     * {@inheritdoc}
+     */
     public function configure(array $configuration): void
     {
         parent::configure($configuration);
@@ -56,6 +59,9 @@ final class PhpUnitExpectationFixer extends AbstractPhpUnitFixer implements Conf
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -152,11 +158,17 @@ final class MyTest extends \PHPUnit_Framework_TestCase
         return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isRisky(): bool
     {
         return true;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
@@ -168,6 +180,9 @@ final class MyTest extends \PHPUnit_Framework_TestCase
         ]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyPhpUnitClassFix(Tokens $tokens, int $startIndex, int $endIndex): void
     {
         foreach (Token::getObjectOperatorKinds() as $objectOperator) {

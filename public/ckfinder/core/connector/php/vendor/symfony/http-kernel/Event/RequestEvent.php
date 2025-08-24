@@ -37,7 +37,7 @@ class RequestEvent extends KernelEvent
     /**
      * Sets a response and stops event propagation.
      */
-    public function setResponse(Response $response): void
+    public function setResponse(Response $response)
     {
         $this->response = $response;
 

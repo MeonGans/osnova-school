@@ -14,46 +14,49 @@ declare(strict_types=1);
 
 namespace PhpCsFixer\Fixer\ControlStructure;
 
-use PhpCsFixer\AbstractProxyFixer;
+use PhpCsFixer\AbstractFixer;
 use PhpCsFixer\Fixer\ConfigurableFixerInterface;
-use PhpCsFixer\Fixer\DeprecatedFixerInterface;
 use PhpCsFixer\FixerConfiguration\FixerConfigurationResolver;
 use PhpCsFixer\FixerConfiguration\FixerConfigurationResolverInterface;
 use PhpCsFixer\FixerConfiguration\FixerOptionBuilder;
+use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
+use PhpCsFixer\Tokenizer\Token;
+use PhpCsFixer\Tokenizer\Tokens;
 
-/**
- * @deprecated
- */
-final class NoUnneededCurlyBracesFixer extends AbstractProxyFixer implements ConfigurableFixerInterface, DeprecatedFixerInterface
+final class NoUnneededCurlyBracesFixer extends AbstractFixer implements ConfigurableFixerInterface
 {
-    private NoUnneededBracesFixer $noUnneededBracesFixer;
-
-    public function __construct()
-    {
-        $this->noUnneededBracesFixer = new NoUnneededBracesFixer();
-
-        parent::__construct();
-    }
-
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
-        $fixerDefinition = $this->noUnneededBracesFixer->getDefinition();
-
         return new FixerDefinition(
             'Removes unneeded curly braces that are superfluous and aren\'t part of a control structure\'s body.',
-            $fixerDefinition->getCodeSamples(),
-            $fixerDefinition->getDescription(),
-            $fixerDefinition->getRiskyDescription()
-        );
+            [
+                new CodeSample(
+                    '<?php {
+    echo 1;
+}
+
+switch ($b) {
+    case 1: {
+        break;
     }
-
-    public function configure(array $configuration): void
-    {
-        $this->noUnneededBracesFixer->configure($configuration);
-
-        parent::configure($configuration);
+}
+'
+                ),
+                new CodeSample(
+                    '<?php
+namespace Foo {
+    function Bar(){}
+}
+',
+                    ['namespaces' => true]
+                ),
+            ]
+        );
     }
 
     /**
@@ -63,16 +66,36 @@ final class NoUnneededCurlyBracesFixer extends AbstractProxyFixer implements Con
      */
     public function getPriority(): int
     {
-        return $this->noUnneededBracesFixer->getPriority();
+        return 40;
     }
 
-    public function getSuccessorsNames(): array
+    /**
+     * {@inheritdoc}
+     */
+    public function isCandidate(Tokens $tokens): bool
     {
-        return [
-            $this->noUnneededBracesFixer->getName(),
-        ];
+        return $tokens->isTokenKindFound('}');
     }
 
+    /**
+     * {@inheritdoc}
+     */
+    protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
+    {
+        foreach ($this->findCurlyBraceOpen($tokens) as $index) {
+            if ($this->isOverComplete($tokens, $index)) {
+                $this->clearOverCompleteBraces($tokens, $index, $tokens->findBlockEnd(Tokens::BLOCK_TYPE_CURLY_BRACE, $index));
+            }
+        }
+
+        if (true === $this->configuration['namespaces']) {
+            $this->clearIfIsOverCompleteNamespaceBlock($tokens);
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
@@ -83,10 +106,67 @@ final class NoUnneededCurlyBracesFixer extends AbstractProxyFixer implements Con
         ]);
     }
 
-    protected function createProxyFixers(): array
+    /**
+     * @param int $openIndex  index of `{` token
+     * @param int $closeIndex index of `}` token
+     */
+    private function clearOverCompleteBraces(Tokens $tokens, int $openIndex, int $closeIndex): void
     {
-        return [
-            $this->noUnneededBracesFixer,
-        ];
+        $tokens->clearTokenAndMergeSurroundingWhitespace($closeIndex);
+        $tokens->clearTokenAndMergeSurroundingWhitespace($openIndex);
+    }
+
+    /**
+     * @return iterable<int>
+     */
+    private function findCurlyBraceOpen(Tokens $tokens): iterable
+    {
+        for ($i = \count($tokens) - 1; $i > 0; --$i) {
+            if ($tokens[$i]->equals('{')) {
+                yield $i;
+            }
+        }
+    }
+
+    /**
+     * @param int $index index of `{` token
+     */
+    private function isOverComplete(Tokens $tokens, int $index): bool
+    {
+        static $include = ['{', '}', [T_OPEN_TAG], ':', ';'];
+
+        return $tokens[$tokens->getPrevMeaningfulToken($index)]->equalsAny($include);
+    }
+
+    private function clearIfIsOverCompleteNamespaceBlock(Tokens $tokens): void
+    {
+        if (1 !== $tokens->countTokenKind(T_NAMESPACE)) {
+            return; // fast check, we never fix if multiple namespaces are defined
+        }
+
+        $index = $tokens->getNextTokenOfKind(0, [[T_NAMESPACE]]);
+
+        do {
+            $index = $tokens->getNextMeaningfulToken($index);
+        } while ($tokens[$index]->isGivenKind([T_STRING, T_NS_SEPARATOR]));
+
+        if (!$tokens[$index]->equals('{')) {
+            return; // `;`
+        }
+
+        $closeIndex = $tokens->findBlockEnd(Tokens::BLOCK_TYPE_CURLY_BRACE, $index);
+        $afterCloseIndex = $tokens->getNextMeaningfulToken($closeIndex);
+
+        if (null !== $afterCloseIndex && (!$tokens[$afterCloseIndex]->isGivenKind(T_CLOSE_TAG) || null !== $tokens->getNextMeaningfulToken($afterCloseIndex))) {
+            return;
+        }
+
+        // clear up
+        $tokens->clearTokenAndMergeSurroundingWhitespace($closeIndex);
+        $tokens[$index] = new Token(';');
+
+        if ($tokens[$index - 1]->isWhitespace(" \t") && !$tokens[$index - 2]->isComment()) {
+            $tokens->clearTokenAndMergeSurroundingWhitespace($index - 1);
+        }
     }
 }

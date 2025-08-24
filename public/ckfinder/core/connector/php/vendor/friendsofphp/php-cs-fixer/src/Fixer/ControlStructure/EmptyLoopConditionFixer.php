@@ -33,6 +33,9 @@ final class EmptyLoopConditionFixer extends AbstractFixer implements Configurabl
 
     private const TOKEN_LOOP_KINDS = [T_FOR, T_WHILE];
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -54,11 +57,17 @@ final class EmptyLoopConditionFixer extends AbstractFixer implements Configurabl
         return 1;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isAnyTokenKindsFound(self::TOKEN_LOOP_KINDS);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         if (self::STYLE_WHILE === $this->configuration['style']) {
@@ -110,6 +119,9 @@ final class EmptyLoopConditionFixer extends AbstractFixer implements Configurabl
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([

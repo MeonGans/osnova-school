@@ -33,11 +33,17 @@ final class CachingLinter implements LinterInterface
         $this->sublinter = $linter;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isAsync(): bool
     {
         return $this->sublinter->isAsync();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function lintFile(string $path): LintingResultInterface
     {
         $checksum = md5(file_get_contents($path));
@@ -49,6 +55,9 @@ final class CachingLinter implements LinterInterface
         return $this->cache[$checksum];
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function lintSource(string $source): LintingResultInterface
     {
         $checksum = md5($source);

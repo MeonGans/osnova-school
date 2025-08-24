@@ -45,6 +45,9 @@ final class PhpUnitMethodCasingFixer extends AbstractPhpUnitFixer implements Con
      */
     public const SNAKE_CASE = 'snake_case';
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -81,16 +84,22 @@ class MyTest extends \\PhpUnit\\FrameWork\\TestCase
         return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
-            (new FixerOptionBuilder('case', 'Apply camel or snake case to test methods.'))
+            (new FixerOptionBuilder('case', 'Apply camel or snake case to test methods'))
                 ->setAllowedValues([self::CAMEL_CASE, self::SNAKE_CASE])
                 ->setDefault(self::CAMEL_CASE)
                 ->getOption(),
         ]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyPhpUnitClassFix(Tokens $tokens, int $startIndex, int $endIndex): void
     {
         for ($index = $endIndex - 1; $index > $startIndex; --$index) {
@@ -153,7 +162,8 @@ class MyTest extends \\PhpUnit\\FrameWork\\TestCase
 
         return
             $this->isPHPDoc($tokens, $docBlockIndex) // If the function doesn't have test in its name, and no doc block, it's not a test
-            && str_contains($tokens[$docBlockIndex]->getContent(), '@test');
+            && str_contains($tokens[$docBlockIndex]->getContent(), '@test')
+        ;
     }
 
     private function isMethod(Tokens $tokens, int $index): bool
@@ -175,12 +185,14 @@ class MyTest extends \\PhpUnit\\FrameWork\\TestCase
                 continue;
             }
 
-            $newLineContent = Preg::replaceCallback('/(@depends\s+)(.+)(\b)/', fn (array $matches): string => sprintf(
-                '%s%s%s',
-                $matches[1],
-                $this->updateMethodCasing($matches[2]),
-                $matches[3]
-            ), $lineContent);
+            $newLineContent = Preg::replaceCallback('/(@depends\s+)(.+)(\b)/', function (array $matches): string {
+                return sprintf(
+                    '%s%s%s',
+                    $matches[1],
+                    $this->updateMethodCasing($matches[2]),
+                    $matches[3]
+                );
+            }, $lineContent);
 
             if ($newLineContent !== $lineContent) {
                 $lines[$inc] = new Line($newLineContent);

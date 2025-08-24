@@ -24,6 +24,9 @@ use PhpCsFixer\Tokenizer\Tokens;
 
 final class SetTypeToCastFixer extends AbstractFunctionReferenceFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -52,11 +55,17 @@ settype($bar, "null");
         return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isAllTokenKindsFound([T_CONSTANT_ENCAPSED_STRING, T_STRING, T_VARIABLE]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $map = [
@@ -126,7 +135,7 @@ settype($bar, "null");
 
             // --- Test type ------------------------------
 
-            $type = strtolower(trim($tokens[$secondArgumentStart]->getContent(), '"\''));
+            $type = strtolower(trim($tokens[$secondArgumentStart]->getContent(), '"\'"'));
 
             if ('null' !== $type && !isset($map[$type])) {
                 continue; // we don't know how to map

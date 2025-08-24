@@ -69,6 +69,28 @@ final class NoUnneededControlParenthesesFixer extends AbstractFixer implements C
         [T_INCLUDE_ONCE],
     ];
 
+    private const NOOP_TYPES = [
+        '$',
+        [T_CONSTANT_ENCAPSED_STRING],
+        [T_DNUMBER],
+        [T_DOUBLE_COLON],
+        [T_LNUMBER],
+        [T_NS_SEPARATOR],
+        [T_OBJECT_OPERATOR],
+        [T_STRING],
+        [T_VARIABLE],
+        [T_STATIC],
+        // magic constants
+        [T_CLASS_C],
+        [T_DIR],
+        [T_FILE],
+        [T_FUNC_C],
+        [T_LINE],
+        [T_METHOD_C],
+        [T_NS_C],
+        [T_TRAIT_C],
+    ];
+
     private const CONFIG_OPTIONS = [
         'break',
         'clone',
@@ -101,43 +123,11 @@ final class NoUnneededControlParenthesesFixer extends AbstractFixer implements C
         T_INCLUDE_ONCE,
     ];
 
-    /**
-     * @var list<list<int>|string>
-     */
-    private array $noopTypes;
-
     private TokensAnalyzer $tokensAnalyzer;
 
-    public function __construct()
-    {
-        parent::__construct();
-
-        $this->noopTypes = [
-            '$',
-            [T_CONSTANT_ENCAPSED_STRING],
-            [T_DNUMBER],
-            [T_DOUBLE_COLON],
-            [T_LNUMBER],
-            [T_NS_SEPARATOR],
-            [T_STRING],
-            [T_VARIABLE],
-            [T_STATIC],
-            // magic constants
-            [T_CLASS_C],
-            [T_DIR],
-            [T_FILE],
-            [T_FUNC_C],
-            [T_LINE],
-            [T_METHOD_C],
-            [T_NS_C],
-            [T_TRAIT_C],
-        ];
-
-        foreach (Token::getObjectOperatorKinds() as $kind) {
-            $this->noopTypes[] = [$kind];
-        }
-    }
-
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -173,18 +163,24 @@ while ($y) { continue (2); }
      * {@inheritdoc}
      *
      * Must run before ConcatSpaceFixer, NoTrailingWhitespaceFixer.
-     * Must run after ModernizeTypesCastingFixer, NoAlternativeSyntaxFixer.
+     * Must run after NoAlternativeSyntaxFixer.
      */
     public function getPriority(): int
     {
         return 30;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isAnyTokenKindsFound(['(', CT::T_BRACE_CLASS_INSTANTIATION_OPEN]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $this->tokensAnalyzer = new TokensAnalyzer($tokens);
@@ -262,11 +258,16 @@ while ($y) { continue (2); }
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         $defaults = array_filter(
             self::CONFIG_OPTIONS,
-            static fn (string $option): bool => 'negative_instanceof' !== $option && 'others' !== $option && 'yield_from' !== $option
+            static function (string $option): bool {
+                return 'negative_instanceof' !== $option && 'others' !== $option && 'yield_from' !== $option;
+            }
         );
 
         return new FixerConfigurationResolver([
@@ -285,7 +286,8 @@ while ($y) { continue (2); }
             || $this->isWrappedFnBody($tokens, $beforeOpenIndex, $afterCloseIndex)
             || $this->isWrappedForElement($tokens, $beforeOpenIndex, $afterCloseIndex)
             || $this->isWrappedLanguageConstructArgument($tokens, $beforeOpenIndex, $afterCloseIndex)
-            || $this->isWrappedSequenceElement($tokens, $beforeOpenIndex, $afterCloseIndex);
+            || $this->isWrappedSequenceElement($tokens, $beforeOpenIndex, $afterCloseIndex)
+        ;
     }
 
     private function isExitStatement(Tokens $tokens, int $beforeOpenIndex): bool
@@ -349,7 +351,8 @@ while ($y) { continue (2); }
             || $this->isSingleStatement($tokens, $beforeOpenIndex, $afterCloseIndex)
             || $this->isWrappedFnBody($tokens, $beforeOpenIndex, $afterCloseIndex)
             || $this->isWrappedForElement($tokens, $beforeOpenIndex, $afterCloseIndex)
-            || $this->isWrappedSequenceElement($tokens, $beforeOpenIndex, $afterCloseIndex);
+            || $this->isWrappedSequenceElement($tokens, $beforeOpenIndex, $afterCloseIndex)
+        ;
     }
 
     private function isWrappedPartOfOperation(Tokens $tokens, int $beforeOpenIndex, int $openIndex, int $closeIndex, int $afterCloseIndex): bool
@@ -416,7 +419,8 @@ while ($y) { continue (2); }
 
         return
             ($beforeIsStatementOpen && $afterIsBinaryOperation) // `<?php (X) +`
-            || ($beforeIsBinaryOperation && $afterIsStatementEnd); // `+ (X);`
+            || ($beforeIsBinaryOperation && $afterIsStatementEnd) // `+ (X);`
+        ;
     }
 
     // bounded `print|yield|yield from|require|require_once|include|include_once (X)`
@@ -469,7 +473,8 @@ while ($y) { continue (2); }
         return
             ($startIsComma && null !== $blockTypeEnd) // `,(X)]`
             || ($endIsComma && null !== $blockTypeStart) // `[(X),`
-            || (null !== $blockTypeEnd && null !== $blockTypeStart); // any type of `{(X)}`, `[(X)]` and `((X))`
+            || (null !== $blockTypeEnd && null !== $blockTypeStart) // any type of `{(X)}`, `[(X)]` and `((X))`
+        ;
     }
 
     // any of `for( (X); ;(X)) ;` note that the middle element is covered as 'single statement' as it is `; (X) ;`
@@ -654,7 +659,7 @@ while ($y) { continue (2); }
                 continue;
             }
 
-            if (!$tokens[$startIndex]->equalsAny($this->noopTypes)) {
+            if (!$tokens[$startIndex]->equalsAny(self::NOOP_TYPES)) {
                 return true;
             }
         }
@@ -695,12 +700,14 @@ while ($y) { continue (2); }
             !$this->isAccess($tokens, $afterCloseIndex)
             && !$tokens[$afterCloseIndex]->equalsAny([';', ',', [T_CLOSE_TAG]])
             && null === $this->getBlock($tokens, $afterCloseIndex, false)
-            && !($tokens[$afterCloseIndex]->equalsAny([':', ';']) && $tokens[$beforeOpenIndex]->isGivenKind(T_CASE));
+            && !($tokens[$afterCloseIndex]->equalsAny([':', ';']) && $tokens[$beforeOpenIndex]->isGivenKind(T_CASE))
+        ;
 
         $needsSpaceBefore =
             !$this->isPreUnaryOperation($tokens, $beforeOpenIndex)
             && !$tokens[$beforeOpenIndex]->equalsAny(['}', [T_EXIT], [T_OPEN_TAG]])
-            && null === $this->getBlock($tokens, $beforeOpenIndex, true);
+            && null === $this->getBlock($tokens, $beforeOpenIndex, true)
+        ;
 
         $this->removeBrace($tokens, $closeIndex, $needsSpaceAfter);
         $this->removeBrace($tokens, $openIndex, $needsSpaceBefore);

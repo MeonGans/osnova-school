@@ -27,6 +27,9 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class MagicConstantCasingFixer extends AbstractFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -35,11 +38,17 @@ final class MagicConstantCasingFixer extends AbstractFixer
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isAnyTokenKindsFound($this->getMagicConstantTokens());
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $magicConstants = $this->getMagicConstants();
@@ -77,7 +86,7 @@ final class MagicConstantCasingFixer extends AbstractFixer
     }
 
     /**
-     * @return list<int>
+     * @return array<int>
      */
     private function getMagicConstantTokens(): array
     {

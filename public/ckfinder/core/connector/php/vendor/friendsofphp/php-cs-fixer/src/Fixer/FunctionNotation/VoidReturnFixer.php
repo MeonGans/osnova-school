@@ -30,6 +30,9 @@ use PhpCsFixer\Tokenizer\TokensAnalyzer;
  */
 final class VoidReturnFixer extends AbstractFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -55,16 +58,25 @@ final class VoidReturnFixer extends AbstractFixer
         return 5;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_FUNCTION);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isRisky(): bool
     {
         return true;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         // These cause syntax errors.
@@ -220,30 +232,20 @@ final class VoidReturnFixer extends AbstractFixer
      *
      * @param int $index The index of the function token
      *
-     * @return list<Annotation>
+     * @return Annotation[]
      */
     private function findReturnAnnotations(Tokens $tokens, int $index): array
     {
-        $previousTokens = [
+        do {
+            $index = $tokens->getPrevNonWhitespace($index);
+        } while ($tokens[$index]->isGivenKind([
             T_ABSTRACT,
             T_FINAL,
             T_PRIVATE,
             T_PROTECTED,
             T_PUBLIC,
             T_STATIC,
-        ];
-
-        if (\defined('T_ATTRIBUTE')) { // @TODO: drop condition when PHP 8.0+ is required
-            $previousTokens[] = T_ATTRIBUTE;
-        }
-
-        do {
-            $index = $tokens->getPrevNonWhitespace($index);
-
-            if ($tokens[$index]->isGivenKind(CT::T_ATTRIBUTE_CLOSE)) {
-                $index = $tokens->getPrevTokenOfKind($index, [[T_ATTRIBUTE]]);
-            }
-        } while ($tokens[$index]->isGivenKind($previousTokens));
+        ]));
 
         if (!$tokens[$index]->isGivenKind(T_DOC_COMMENT)) {
             return [];

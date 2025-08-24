@@ -27,6 +27,9 @@ use PhpCsFixer\Tokenizer\Tokens;
 
 final class FopenFlagsFixer extends AbstractFopenFlagFixer implements ConfigurableFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -40,6 +43,9 @@ final class FopenFlagsFixer extends AbstractFopenFlagFixer implements Configurab
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([

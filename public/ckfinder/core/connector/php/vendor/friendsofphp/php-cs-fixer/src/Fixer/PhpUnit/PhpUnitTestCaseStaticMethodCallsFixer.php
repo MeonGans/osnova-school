@@ -27,7 +27,6 @@ use PhpCsFixer\Tokenizer\CT;
 use PhpCsFixer\Tokenizer\Token;
 use PhpCsFixer\Tokenizer\Tokens;
 use PhpCsFixer\Tokenizer\TokensAnalyzer;
-use PhpCsFixer\Utils;
 use Symfony\Component\OptionsResolver\Exception\InvalidOptionsException;
 
 /**
@@ -51,17 +50,22 @@ final class PhpUnitTestCaseStaticMethodCallsFixer extends AbstractPhpUnitFixer i
     public const CALL_TYPE_STATIC = 'static';
 
     /**
-     * @var array<string, true>
+     * @var array<string,bool>
      */
-    private const STATIC_METHODS = [
+    private array $allowedValues = [
+        self::CALL_TYPE_THIS => true,
+        self::CALL_TYPE_SELF => true,
+        self::CALL_TYPE_STATIC => true,
+    ];
+
+    /**
+     * @var array<string,true>
+     */
+    private array $staticMethods = [
         // Assert methods
         'anything' => true,
         'arrayHasKey' => true,
         'assertArrayHasKey' => true,
-        'assertArrayIsEqualToArrayIgnoringListOfKeys' => true,
-        'assertArrayIsEqualToArrayOnlyConsideringListOfKeys' => true,
-        'assertArrayIsIdenticalToArrayIgnoringListOfKeys' => true,
-        'assertArrayIsIdenticalToArrayOnlyConsideringListOfKeys' => true,
         'assertArrayNotHasKey' => true,
         'assertArraySubset' => true,
         'assertAttributeContains' => true,
@@ -104,11 +108,11 @@ final class PhpUnitTestCaseStaticMethodCallsFixer extends AbstractPhpUnitFixer i
         'assertDirectoryNotIsWritable' => true,
         'assertDoesNotMatchRegularExpression' => true,
         'assertEmpty' => true,
+        'assertEqualXMLStructure' => true,
         'assertEquals' => true,
         'assertEqualsCanonicalizing' => true,
         'assertEqualsIgnoringCase' => true,
         'assertEqualsWithDelta' => true,
-        'assertEqualXMLStructure' => true,
         'assertFalse' => true,
         'assertFileDoesNotExist' => true,
         'assertFileEquals' => true,
@@ -119,8 +123,6 @@ final class PhpUnitTestCaseStaticMethodCallsFixer extends AbstractPhpUnitFixer i
         'assertFileIsNotWritable' => true,
         'assertFileIsReadable' => true,
         'assertFileIsWritable' => true,
-        'assertFileMatchesFormat' => true,
-        'assertFileMatchesFormatFile' => true,
         'assertFileNotEquals' => true,
         'assertFileNotEqualsCanonicalizing' => true,
         'assertFileNotEqualsIgnoringCase' => true,
@@ -140,7 +142,6 @@ final class PhpUnitTestCaseStaticMethodCallsFixer extends AbstractPhpUnitFixer i
         'assertIsFloat' => true,
         'assertIsInt' => true,
         'assertIsIterable' => true,
-        'assertIsList' => true,
         'assertIsNotArray' => true,
         'assertIsNotBool' => true,
         'assertIsNotCallable' => true,
@@ -195,21 +196,17 @@ final class PhpUnitTestCaseStaticMethodCallsFixer extends AbstractPhpUnitFixer i
         'assertNull' => true,
         'assertObjectEquals' => true,
         'assertObjectHasAttribute' => true,
-        'assertObjectHasProperty' => true,
         'assertObjectNotHasAttribute' => true,
-        'assertObjectNotHasProperty' => true,
         'assertRegExp' => true,
         'assertSame' => true,
         'assertSameSize' => true,
         'assertStringContainsString' => true,
         'assertStringContainsStringIgnoringCase' => true,
-        'assertStringContainsStringIgnoringLineEndings' => true,
         'assertStringEndsNotWith' => true,
         'assertStringEndsWith' => true,
         'assertStringEqualsFile' => true,
         'assertStringEqualsFileCanonicalizing' => true,
         'assertStringEqualsFileIgnoringCase' => true,
-        'assertStringEqualsStringIgnoringLineEndings' => true,
         'assertStringMatchesFormat' => true,
         'assertStringMatchesFormatFile' => true,
         'assertStringNotContainsString' => true,
@@ -259,7 +256,6 @@ final class PhpUnitTestCaseStaticMethodCallsFixer extends AbstractPhpUnitFixer i
         'isInfinite' => true,
         'isInstanceOf' => true,
         'isJson' => true,
-        'isList' => true,
         'isNan' => true,
         'isNull' => true,
         'isReadable' => true,
@@ -282,7 +278,6 @@ final class PhpUnitTestCaseStaticMethodCallsFixer extends AbstractPhpUnitFixer i
         'resetCount' => true,
         'stringContains' => true,
         'stringEndsWith' => true,
-        'stringEqualsStringIgnoringLineEndings' => true,
         'stringStartsWith' => true,
 
         // TestCase methods
@@ -306,15 +301,6 @@ final class PhpUnitTestCaseStaticMethodCallsFixer extends AbstractPhpUnitFixer i
     ];
 
     /**
-     * @var array<string, bool>
-     */
-    private const ALLOWED_VALUES = [
-        self::CALL_TYPE_THIS => true,
-        self::CALL_TYPE_SELF => true,
-        self::CALL_TYPE_STATIC => true,
-    ];
-
-    /**
      * @var array<string, list<list<int|string>>>
      */
     private array $conversionMap = [
@@ -323,6 +309,9 @@ final class PhpUnitTestCaseStaticMethodCallsFixer extends AbstractPhpUnitFixer i
         self::CALL_TYPE_STATIC => [[T_DOUBLE_COLON, '::'], [T_STATIC, 'static']],
     ];
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         $codeSample = '<?php
@@ -358,39 +347,47 @@ final class MyTest extends \PHPUnit_Framework_TestCase
         return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isRisky(): bool
     {
         return true;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
+        $thisFixer = $this;
+
         return new FixerConfigurationResolver([
             (new FixerOptionBuilder('call_type', 'The call type to use for referring to PHPUnit methods.'))
                 ->setAllowedTypes(['string'])
-                ->setAllowedValues(array_keys(self::ALLOWED_VALUES))
+                ->setAllowedValues(array_keys($this->allowedValues))
                 ->setDefault('static')
                 ->getOption(),
             (new FixerOptionBuilder('methods', 'Dictionary of `method` => `call_type` values that differ from the default strategy.'))
                 ->setAllowedTypes(['array'])
-                ->setAllowedValues([static function (array $option): bool {
+                ->setAllowedValues([static function (array $option) use ($thisFixer): bool {
                     foreach ($option as $method => $value) {
-                        if (!isset(self::STATIC_METHODS[$method])) {
+                        if (!isset($thisFixer->staticMethods[$method])) {
                             throw new InvalidOptionsException(
                                 sprintf(
-                                    'Unexpected "methods" key, expected any of %s, got "%s".',
-                                    Utils::naturalLanguageJoin(array_keys(self::STATIC_METHODS)),
+                                    'Unexpected "methods" key, expected any of "%s", got "%s".',
+                                    implode('", "', array_keys($thisFixer->staticMethods)),
                                     \gettype($method).'#'.$method
                                 )
                             );
                         }
 
-                        if (!isset(self::ALLOWED_VALUES[$value])) {
+                        if (!isset($thisFixer->allowedValues[$value])) {
                             throw new InvalidOptionsException(
                                 sprintf(
-                                    'Unexpected value for method "%s", expected any of %s, got "%s".',
+                                    'Unexpected value for method "%s", expected any of "%s", got "%s".',
                                     $method,
-                                    Utils::naturalLanguageJoin(array_keys(self::ALLOWED_VALUES)),
+                                    implode('", "', array_keys($thisFixer->allowedValues)),
                                     \is_object($value) ? \get_class($value) : (null === $value ? 'null' : \gettype($value).'#'.$value)
                                 )
                             );
@@ -404,6 +401,9 @@ final class MyTest extends \PHPUnit_Framework_TestCase
         ]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyPhpUnitClassFix(Tokens $tokens, int $startIndex, int $endIndex): void
     {
         $analyzer = new TokensAnalyzer($tokens);
@@ -438,7 +438,7 @@ final class MyTest extends \PHPUnit_Framework_TestCase
                 }
             }
 
-            if (!$tokens[$index]->isGivenKind(T_STRING) || !isset(self::STATIC_METHODS[$tokens[$index]->getContent()])) {
+            if (!$tokens[$index]->isGivenKind(T_STRING) || !isset($this->staticMethods[$tokens[$index]->getContent()])) {
                 continue;
             }
 

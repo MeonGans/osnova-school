@@ -20,6 +20,9 @@ use SebastianBergmann\Diff\Output\StrictUnifiedDiffOutputBuilder;
 
 final class UnifiedDiffer implements DifferInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function diff(string $old, string $new, ?\SplFileInfo $file = null): string
     {
         if (null === $file) {
@@ -30,7 +33,7 @@ final class UnifiedDiffer implements DifferInterface
         } else {
             $filePath = $file->getRealPath();
 
-            if (Preg::match('/\s/', $filePath)) {
+            if (1 === Preg::match('/\s/', $filePath)) {
                 $filePath = '"'.$filePath.'"';
             }
 

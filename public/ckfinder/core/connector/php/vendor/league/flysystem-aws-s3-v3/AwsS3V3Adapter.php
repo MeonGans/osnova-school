@@ -51,6 +51,7 @@ class AwsS3V3Adapter implements FilesystemAdapter, PublicUrlGenerator, ChecksumP
         'ContentEncoding',
         'ContentLength',
         'ContentType',
+        'ContentMD5',
         'Expires',
         'GrantFullControl',
         'GrantRead',
@@ -68,15 +69,11 @@ class AwsS3V3Adapter implements FilesystemAdapter, PublicUrlGenerator, ChecksumP
         'Tagging',
         'WebsiteRedirectLocation',
         'ChecksumAlgorithm',
-        'CopySourceSSECustomerAlgorithm',
-        'CopySourceSSECustomerKey',
-        'CopySourceSSECustomerKeyMD5',
     ];
     /**
      * @var string[]
      */
     public const MUP_AVAILABLE_OPTIONS = [
-        'add_content_md5',
         'before_upload',
         'concurrency',
         'mup_threshold',
@@ -94,31 +91,84 @@ class AwsS3V3Adapter implements FilesystemAdapter, PublicUrlGenerator, ChecksumP
         'VersionId',
     ];
 
-    private PathPrefixer $prefixer;
-    private VisibilityConverter $visibility;
-    private MimeTypeDetector $mimeTypeDetector;
+    /**
+     * @var S3ClientInterface
+     */
+    private $client;
+
+    /**
+     * @var PathPrefixer
+     */
+    private $prefixer;
+
+    /**
+     * @var string
+     */
+    private $bucket;
+
+    /**
+     * @var VisibilityConverter
+     */
+    private $visibility;
+
+    /**
+     * @var MimeTypeDetector
+     */
+    private $mimeTypeDetector;
+
+    /**
+     * @var array
+     */
+    private $options;
+
+    /**
+     * @var bool
+     */
+    private $streamReads;
+
+    /**
+     * @var string[]
+     */
+    private array $forwardedOptions;
+
+    /**
+     * @var string[]
+     */
+    private array $metadataFields;
+
+    /**
+     * @var string[]
+     */
+    private array $multipartUploadOptions;
 
     public function __construct(
-        private S3ClientInterface $client,
-        private string $bucket,
+        S3ClientInterface $client,
+        string $bucket,
         string $prefix = '',
-        ?VisibilityConverter $visibility = null,
-        ?MimeTypeDetector $mimeTypeDetector = null,
-        private array $options = [],
-        private bool $streamReads = true,
-        private array $forwardedOptions = self::AVAILABLE_OPTIONS,
-        private array $metadataFields = self::EXTRA_METADATA_FIELDS,
-        private array $multipartUploadOptions = self::MUP_AVAILABLE_OPTIONS,
+        VisibilityConverter $visibility = null,
+        MimeTypeDetector $mimeTypeDetector = null,
+        array $options = [],
+        bool $streamReads = true,
+        array $forwardedOptions = self::AVAILABLE_OPTIONS,
+        array $metadataFields = self::EXTRA_METADATA_FIELDS,
+        array $multipartUploadOptions = self::MUP_AVAILABLE_OPTIONS,
     ) {
+        $this->client = $client;
         $this->prefixer = new PathPrefixer($prefix);
-        $this->visibility = $visibility ?? new PortableVisibilityConverter();
-        $this->mimeTypeDetector = $mimeTypeDetector ?? new FinfoMimeTypeDetector();
+        $this->bucket = $bucket;
+        $this->visibility = $visibility ?: new PortableVisibilityConverter();
+        $this->mimeTypeDetector = $mimeTypeDetector ?: new FinfoMimeTypeDetector();
+        $this->options = $options;
+        $this->streamReads = $streamReads;
+        $this->forwardedOptions = $forwardedOptions;
+        $this->metadataFields = $metadataFields;
+        $this->multipartUploadOptions = $multipartUploadOptions;
     }
 
     public function fileExists(string $path): bool
     {
         try {
-            return $this->client->doesObjectExistV2($this->bucket, $this->prefixer->prefixPath($path), false, $this->options);
+            return $this->client->doesObjectExist($this->bucket, $this->prefixer->prefixPath($path), $this->options);
         } catch (Throwable $exception) {
             throw UnableToCheckFileExistence::forLocation($path, $exception);
         }
@@ -247,8 +297,8 @@ class AwsS3V3Adapter implements FilesystemAdapter, PublicUrlGenerator, ChecksumP
 
     public function createDirectory(string $path, Config $config): void
     {
-        $defaultVisibility = $config->get(Config::OPTION_DIRECTORY_VISIBILITY, $this->visibility->defaultForDirectories());
-        $config = $config->withDefaults([Config::OPTION_VISIBILITY => $defaultVisibility]);
+        $defaultVisibility = $config->get('directory_visibility', $this->visibility->defaultForDirectories());
+        $config = $config->withDefaults(['visibility' => $defaultVisibility]);
         $this->upload(rtrim($path, '/') . '/', '', $config);
     }
 
@@ -400,8 +450,8 @@ class AwsS3V3Adapter implements FilesystemAdapter, PublicUrlGenerator, ChecksumP
         $resultPaginator = $this->client->getPaginator('ListObjectsV2', $options + $this->options);
 
         foreach ($resultPaginator as $result) {
-            yield from ($result->get('CommonPrefixes') ?? []);
-            yield from ($result->get('Contents') ?? []);
+            yield from ($result->get('CommonPrefixes') ?: []);
+            yield from ($result->get('Contents') ?: []);
         }
     }
 
@@ -418,11 +468,8 @@ class AwsS3V3Adapter implements FilesystemAdapter, PublicUrlGenerator, ChecksumP
     public function copy(string $source, string $destination, Config $config): void
     {
         try {
-            $visibility = $config->get(Config::OPTION_VISIBILITY);
-
-            if ($visibility === null && $config->get(Config::OPTION_RETAIN_VISIBILITY, true)) {
-                $visibility = $this->visibility($source)->visibility();
-            }
+            /** @var string $visibility */
+            $visibility = $config->get(Config::OPTION_VISIBILITY) ?: $this->visibility($source)->visibility();
         } catch (Throwable $exception) {
             throw UnableToCopyFile::fromLocationTo(
                 $source,
@@ -431,17 +478,14 @@ class AwsS3V3Adapter implements FilesystemAdapter, PublicUrlGenerator, ChecksumP
             );
         }
 
-        $options = $this->createOptionsFromConfig($config);
-        $options['MetadataDirective'] = $config->get('MetadataDirective', 'COPY');
-
         try {
             $this->client->copy(
                 $this->bucket,
                 $this->prefixer->prefixPath($source),
                 $this->bucket,
                 $this->prefixer->prefixPath($destination),
-                $this->visibility->visibilityToAcl($visibility ?: 'private'),
-                $options,
+                $this->visibility->visibilityToAcl($visibility),
+                $this->createOptionsFromConfig($config)['params']
             );
         } catch (Throwable $exception) {
             throw UnableToCopyFile::fromLocationTo($source, $destination, $exception);
@@ -509,7 +553,7 @@ class AwsS3V3Adapter implements FilesystemAdapter, PublicUrlGenerator, ChecksumP
             $presignedRequestOptions = $config->get('presigned_request_options', []);
             $request = $this->client->createPresignedRequest($command, $expiresAt, $presignedRequestOptions);
 
-            return (string) $request->getUri();
+            return (string)$request->getUri();
         } catch (Throwable $exception) {
             throw UnableToGenerateTemporaryUrl::dueToError($path, $exception);
         }

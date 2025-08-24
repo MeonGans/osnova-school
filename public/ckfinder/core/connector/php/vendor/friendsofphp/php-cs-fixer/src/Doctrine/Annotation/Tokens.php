@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace PhpCsFixer\Doctrine\Annotation;
 
+use Doctrine\Common\Annotations\DocLexer;
 use PhpCsFixer\Preg;
 use PhpCsFixer\Tokenizer\Token as PhpToken;
 
@@ -58,27 +59,27 @@ final class Tokens extends \SplFixedArray
             $nbScannedTokensToUse = 0;
             $nbScopes = 0;
             while (null !== $token = $lexer->peek()) {
-                if (0 === $index && !$token->isType(DocLexer::T_AT)) {
+                if (0 === $index && DocLexer::T_AT !== $token['type']) {
                     break;
                 }
 
                 if (1 === $index) {
-                    if (!$token->isType(DocLexer::T_IDENTIFIER) || \in_array($token->getContent(), $ignoredTags, true)) {
+                    if (DocLexer::T_IDENTIFIER !== $token['type'] || \in_array($token['value'], $ignoredTags, true)) {
                         break;
                     }
 
                     $nbScannedTokensToUse = 2;
                 }
 
-                if ($index >= 2 && 0 === $nbScopes && !$token->isType([DocLexer::T_NONE, DocLexer::T_OPEN_PARENTHESIS])) {
+                if ($index >= 2 && 0 === $nbScopes && !\in_array($token['type'], [DocLexer::T_NONE, DocLexer::T_OPEN_PARENTHESIS], true)) {
                     break;
                 }
 
                 $scannedTokens[] = $token;
 
-                if ($token->isType(DocLexer::T_OPEN_PARENTHESIS)) {
+                if (DocLexer::T_OPEN_PARENTHESIS === $token['type']) {
                     ++$nbScopes;
-                } elseif ($token->isType(DocLexer::T_CLOSE_PARENTHESIS)) {
+                } elseif (DocLexer::T_CLOSE_PARENTHESIS === $token['type']) {
                     if (0 === --$nbScopes) {
                         $nbScannedTokensToUse = \count($scannedTokens);
 
@@ -101,15 +102,11 @@ final class Tokens extends \SplFixedArray
 
                 $lastTokenEndIndex = 0;
                 foreach (\array_slice($scannedTokens, 0, $nbScannedTokensToUse) as $token) {
-                    if ($token->isType(DocLexer::T_STRING)) {
-                        $token = new Token(
-                            $token->getType(),
-                            '"'.str_replace('"', '""', $token->getContent()).'"',
-                            $token->getPosition()
-                        );
+                    if (DocLexer::T_STRING === $token['type']) {
+                        $token['value'] = '"'.str_replace('"', '""', $token['value']).'"';
                     }
 
-                    $missingTextLength = $token->getPosition() - $lastTokenEndIndex;
+                    $missingTextLength = $token['position'] - $lastTokenEndIndex;
                     if ($missingTextLength > 0) {
                         $tokens[] = new Token(DocLexer::T_NONE, substr(
                             $content,
@@ -118,11 +115,11 @@ final class Tokens extends \SplFixedArray
                         ));
                     }
 
-                    $tokens[] = new Token($token->getType(), $token->getContent());
-                    $lastTokenEndIndex = $token->getPosition() + \strlen($token->getContent());
+                    $tokens[] = new Token($token['type'], $token['value']);
+                    $lastTokenEndIndex = $token['position'] + \strlen($token['value']);
                 }
 
-                $currentPosition = $ignoredTextPosition = $nextAtPosition + $token->getPosition() + \strlen($token->getContent());
+                $currentPosition = $ignoredTextPosition = $nextAtPosition + $token['position'] + \strlen($token['value']);
             } else {
                 $currentPosition = $nextAtPosition + 1;
             }
@@ -138,8 +135,8 @@ final class Tokens extends \SplFixedArray
     /**
      * Create token collection from array.
      *
-     * @param array<int, Token> $array       the array to import
-     * @param ?bool             $saveIndices save the numeric indices used in the original array, default is yes
+     * @param Token[] $array       the array to import
+     * @param ?bool   $saveIndices save the numeric indices used in the original array, default is yes
      */
     public static function fromArray($array, $saveIndices = null): self
     {
@@ -245,6 +242,7 @@ final class Tokens extends \SplFixedArray
 
     public function offsetSet($index, $token): void
     {
+        // @phpstan-ignore-next-line as we type checking here
         if (null === $token) {
             throw new \InvalidArgumentException('Token must be an instance of PhpCsFixer\\Doctrine\\Annotation\\Token, "null" given.');
         }
@@ -263,7 +261,7 @@ final class Tokens extends \SplFixedArray
     }
 
     /**
-     * @param mixed $index
+     * {@inheritdoc}
      *
      * @throws \OutOfBoundsException
      */
@@ -275,6 +273,7 @@ final class Tokens extends \SplFixedArray
 
         $max = \count($this) - 1;
         while ($index < $max) {
+            // @phpstan-ignore-next-line Next index always exists.
             $this[$index] = $this[$index + 1];
             ++$index;
         }

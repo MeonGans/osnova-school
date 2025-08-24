@@ -28,11 +28,17 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class ClassConstantTransformer extends AbstractTransformer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getRequiredPhpVersionId(): int
     {
-        return 5_05_00;
+        return 50500;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function process(Tokens $tokens, Token $token, int $index): void
     {
         if (!$token->equalsAny([
@@ -50,6 +56,9 @@ final class ClassConstantTransformer extends AbstractTransformer
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getCustomTokens(): array
     {
         return [CT::T_CLASS_CONSTANT];

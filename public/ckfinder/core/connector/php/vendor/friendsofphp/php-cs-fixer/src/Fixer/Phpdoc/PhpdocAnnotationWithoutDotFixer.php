@@ -29,10 +29,13 @@ use PhpCsFixer\Tokenizer\Tokens;
 final class PhpdocAnnotationWithoutDotFixer extends AbstractFixer
 {
     /**
-     * @var list<string>
+     * @var string[]
      */
     private array $tags = ['throws', 'return', 'param', 'internal', 'deprecated', 'var', 'type'];
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -49,7 +52,7 @@ function foo ($bar) {}
     /**
      * {@inheritdoc}
      *
-     * Must run before PhpdocAlignFixer.
+     * Must run before PhpdocAlignFixer, PhpdocTypesFixer, PhpdocTypesOrderFixer.
      * Must run after AlignMultilineCommentFixer, CommentToPhpdocFixer, PhpdocIndentFixer, PhpdocToCommentFixer.
      */
     public function getPriority(): int
@@ -57,11 +60,17 @@ function foo ($bar) {}
         return 17;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_DOC_COMMENT);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         foreach ($tokens as $index => $token) {
@@ -95,8 +104,8 @@ function foo ($bar) {}
                 $content = $annotation->getContent();
 
                 if (
-                    !Preg::match('/[.。]\h*$/u', $content)
-                    || Preg::match('/[.。](?!\h*$)/u', $content, $matches)
+                    1 !== Preg::match('/[.。]\h*$/u', $content)
+                    || 0 !== Preg::match('/[.。](?!\h*$)/u', $content, $matches)
                 ) {
                     continue;
                 }
@@ -110,7 +119,9 @@ function foo ($bar) {}
                     : '';
                 $content = Preg::replaceCallback(
                     '/^(\s*\*\s*@\w+\s+'.$optionalTypeRegEx.')(\p{Lu}?(?=\p{Ll}|\p{Zs}))(.*)$/',
-                    static fn (array $matches): string => $matches[1].mb_strtolower($matches[2]).$matches[3],
+                    static function (array $matches): string {
+                        return $matches[1].mb_strtolower($matches[2]).$matches[3];
+                    },
                     $startLine->getContent(),
                     1
                 );

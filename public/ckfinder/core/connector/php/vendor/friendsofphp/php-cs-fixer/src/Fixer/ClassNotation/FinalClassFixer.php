@@ -24,6 +24,9 @@ use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
  */
 final class FinalClassFixer extends AbstractProxyFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -46,19 +49,12 @@ class MyApp {}
 
     /**
      * {@inheritdoc}
-     *
-     * Must run before ProtectedToPrivateFixer, SelfStaticAccessorFixer.
      */
-    public function getPriority(): int
-    {
-        return parent::getPriority();
-    }
-
     protected function createProxyFixers(): array
     {
         $fixer = new FinalInternalClassFixer();
         $fixer->configure([
-            'include' => [],
+            'annotation_include' => [],
             'consider_absent_docblock_as_internal_class' => true,
         ]);
 

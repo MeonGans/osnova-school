@@ -29,6 +29,9 @@ use PhpCsFixer\Tokenizer\Tokens;
 
 final class NoTrailingCommaInSinglelineFixer extends AbstractFixer implements ConfigurableFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -40,13 +43,20 @@ final class NoTrailingCommaInSinglelineFixer extends AbstractFixer implements Co
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return
             $tokens->isTokenKindFound(',')
-            && $tokens->isAnyTokenKindsFound([')', CT::T_ARRAY_SQUARE_BRACE_CLOSE, CT::T_DESTRUCTURING_SQUARE_BRACE_CLOSE, CT::T_GROUP_IMPORT_BRACE_CLOSE]);
+            && $tokens->isAnyTokenKindsFound([')', CT::T_ARRAY_SQUARE_BRACE_CLOSE, CT::T_DESTRUCTURING_SQUARE_BRACE_CLOSE, CT::T_GROUP_IMPORT_BRACE_CLOSE])
+        ;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         $elements = ['arguments', 'array_destructuring', 'array', 'group_import'];
@@ -60,6 +70,9 @@ final class NoTrailingCommaInSinglelineFixer extends AbstractFixer implements Co
         ]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         for ($index = $tokens->count() - 1; $index >= 0; --$index) {
@@ -141,7 +154,8 @@ final class NoTrailingCommaInSinglelineFixer extends AbstractFixer implements Co
                     || Tokens::BLOCK_TYPE_DYNAMIC_VAR_BRACE === $block['type']
                     || Tokens::BLOCK_TYPE_INDEX_SQUARE_BRACE === $block['type']
                     || Tokens::BLOCK_TYPE_PARENTHESIS_BRACE === $block['type']
-                ) && \in_array('arguments', $elements, true);
+                ) && \in_array('arguments', $elements, true)
+            ;
         }
 
         return false;

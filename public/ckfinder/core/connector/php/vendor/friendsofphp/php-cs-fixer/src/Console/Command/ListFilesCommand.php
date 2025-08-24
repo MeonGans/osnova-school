@@ -23,7 +23,6 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Filesystem\Path;
 
 /**
  * @author Markus Staab <markus.staab@redaxo.org>
@@ -33,7 +32,9 @@ use Symfony\Component\Filesystem\Path;
 #[AsCommand(name: 'list-files')]
 final class ListFilesCommand extends Command
 {
-    /** @var string */
+    /**
+     * @var string
+     */
     protected static $defaultName = 'list-files';
 
     private ConfigInterface $defaultConfig;
@@ -48,6 +49,9 @@ final class ListFilesCommand extends Command
         $this->toolInfo = $toolInfo;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function configure(): void
     {
         $this
@@ -79,7 +83,7 @@ final class ListFilesCommand extends Command
         /** @var \SplFileInfo $file */
         foreach ($finder as $file) {
             if ($file->isFile()) {
-                $relativePath = './'.Path::makeRelative($file->getRealPath(), $cwd);
+                $relativePath = str_replace($cwd, '.', $file->getRealPath());
                 // unify directory separators across operating system
                 $relativePath = str_replace('/', \DIRECTORY_SEPARATOR, $relativePath);
 

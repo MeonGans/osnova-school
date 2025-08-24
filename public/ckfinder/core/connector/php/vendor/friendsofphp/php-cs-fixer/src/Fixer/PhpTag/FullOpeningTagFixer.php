@@ -29,6 +29,9 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class FullOpeningTagFixer extends AbstractFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -44,17 +47,26 @@ echo "Hello!";
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getPriority(): int
     {
         // must run before all Token-based fixers
         return 98;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return true;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $content = $tokens->generateCode();
@@ -62,7 +74,7 @@ echo "Hello!";
         // replace all <? with <?php to replace all short open tags even without short_open_tag option enabled
         $newContent = Preg::replace('/<\?(?:phP|pHp|pHP|Php|PhP|PHp|PHP)?(\s|$)/', '<?php$1', $content, -1, $count);
 
-        if (0 === $count) {
+        if (!$count) {
             return;
         }
 

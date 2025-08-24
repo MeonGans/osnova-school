@@ -19,6 +19,7 @@ use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
 use PhpCsFixer\Tokenizer\Analyzer\ArgumentsAnalyzer;
+use PhpCsFixer\Tokenizer\Analyzer\NamespacesAnalyzer;
 use PhpCsFixer\Tokenizer\Analyzer\NamespaceUsesAnalyzer;
 use PhpCsFixer\Tokenizer\Token;
 use PhpCsFixer\Tokenizer\Tokens;
@@ -64,9 +65,10 @@ final class DateTimeCreateFromFormatCallFixer extends AbstractFixer
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $argumentsAnalyzer = new ArgumentsAnalyzer();
+        $namespacesAnalyzer = new NamespacesAnalyzer();
         $namespaceUsesAnalyzer = new NamespaceUsesAnalyzer();
 
-        foreach ($tokens->getNamespaceDeclarations() as $namespace) {
+        foreach ($namespacesAnalyzer->getDeclarations($tokens) as $namespace) {
             $scopeStartIndex = $namespace->getScopeStartIndex();
             $useDeclarations = $namespaceUsesAnalyzer->getDeclarationsInNamespace($tokens, $namespace);
 
@@ -87,7 +89,7 @@ final class DateTimeCreateFromFormatCallFixer extends AbstractFixer
 
                 $classNameIndex = $tokens->getPrevMeaningfulToken($index);
 
-                if (!$tokens[$classNameIndex]->equalsAny([[T_STRING, \DateTime::class], [T_STRING, \DateTimeImmutable::class]], false)) {
+                if (!$tokens[$classNameIndex]->equalsAny([[T_STRING, 'DateTime'], [T_STRING, 'DateTimeImmutable']], false)) {
                     continue;
                 }
 

@@ -152,7 +152,9 @@ final class DocBlock
 
         $usefulLines = array_filter(
             $this->lines,
-            static fn (Line $line): bool => $line->containsUsefulContent()
+            static function (Line $line): bool {
+                return $line->containsUsefulContent();
+            }
         );
 
         if (1 < \count($usefulLines)) {

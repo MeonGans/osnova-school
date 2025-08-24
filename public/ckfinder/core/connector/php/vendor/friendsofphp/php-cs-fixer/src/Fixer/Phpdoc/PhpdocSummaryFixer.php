@@ -29,6 +29,9 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class PhpdocSummaryFixer extends AbstractFixer implements WhitespacesAwareFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -53,11 +56,17 @@ function foo () {}
         return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_DOC_COMMENT);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         foreach ($tokens as $index => $token) {
@@ -72,12 +81,7 @@ function foo () {}
                 $line = $doc->getLine($end);
                 $content = rtrim($line->getContent());
 
-                if (
-                    // final line of Description is NOT properly formatted
-                    !$this->isCorrectlyFormatted($content)
-                    // and first line  of Description, if different than final line, does NOT indicate a list
-                    && (1 === $end || ($doc->isMultiLine() && ':' !== substr(rtrim($doc->getLine(1)->getContent()), -1)))
-                ) {
+                if (!$this->isCorrectlyFormatted($content)) {
                     $line->setContent($content.'.'.$this->whitespacesConfig->getLineEnding());
                     $tokens[$index] = new Token([T_DOC_COMMENT, $doc->getContent()]);
                 }
@@ -94,6 +98,6 @@ function foo () {}
             return true;
         }
 
-        return $content !== rtrim($content, '.:。!?¡¿！？');
+        return $content !== rtrim($content, '.。!?¡¿！？');
     }
 }

@@ -22,7 +22,6 @@ use PhpCsFixer\FixerConfiguration\FixerOptionBuilder;
 use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
-use PhpCsFixer\Tokenizer\Token;
 use PhpCsFixer\Tokenizer\Tokens;
 use PhpCsFixer\Tokenizer\TokensAnalyzer;
 
@@ -31,6 +30,9 @@ use PhpCsFixer\Tokenizer\TokensAnalyzer;
  */
 final class NoUnneededFinalMethodFixer extends AbstractFixer implements ConfigurableFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -71,6 +73,9 @@ class Bar
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         if (!$tokens->isAllTokenKindsFound([T_FINAL, T_FUNCTION])) {
@@ -89,6 +94,9 @@ class Bar
         return true;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         foreach ($this->getMethods($tokens) as $element) {
@@ -108,6 +116,9 @@ class Bar
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
@@ -118,18 +129,6 @@ class Bar
         ]);
     }
 
-    /**
-     * @return \Generator<array{
-     *     classIndex: int,
-     *     token: Token,
-     *     type: string,
-     *     class_is_final?: bool,
-     *     method_final_index: int|null,
-     *     method_is_constructor?: bool,
-     *     method_is_private: bool,
-     *     method_of_enum: bool
-     * }>
-     */
     private function getMethods(Tokens $tokens): \Generator
     {
         $tokensAnalyzer = new TokensAnalyzer($tokens);
@@ -182,8 +181,8 @@ class Bar
             }
 
             if (!\array_key_exists($classIndex, $classesAreFinal)) {
-                $modifiers = $tokensAnalyzer->getClassyModifiers($classIndex);
-                $classesAreFinal[$classIndex] = isset($modifiers['final']);
+                $prevToken = $tokens[$tokens->getPrevMeaningfulToken($classIndex)];
+                $classesAreFinal[$classIndex] = $prevToken->isGivenKind(T_FINAL);
             }
 
             $element['method_of_enum'] = false;

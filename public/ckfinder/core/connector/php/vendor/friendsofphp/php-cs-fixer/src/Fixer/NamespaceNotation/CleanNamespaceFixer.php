@@ -14,15 +14,18 @@ declare(strict_types=1);
 
 namespace PhpCsFixer\Fixer\NamespaceNotation;
 
-use PhpCsFixer\AbstractFixer;
+use PhpCsFixer\AbstractLinesBeforeNamespaceFixer;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
 use PhpCsFixer\FixerDefinition\VersionSpecification;
 use PhpCsFixer\FixerDefinition\VersionSpecificCodeSample;
 use PhpCsFixer\Tokenizer\Tokens;
 
-final class CleanNamespaceFixer extends AbstractFixer
+final class CleanNamespaceFixer extends AbstractLinesBeforeNamespaceFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         $samples = [];
@@ -30,7 +33,7 @@ final class CleanNamespaceFixer extends AbstractFixer
         foreach (['namespace Foo \\ Bar;', 'echo foo /* comment */ \\ bar();'] as $sample) {
             $samples[] = new VersionSpecificCodeSample(
                 "<?php\n".$sample."\n",
-                new VersionSpecification(null, 8_00_00 - 1)
+                new VersionSpecification(null, 80000 - 1)
             );
         }
 
@@ -40,21 +43,17 @@ final class CleanNamespaceFixer extends AbstractFixer
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
-        return \PHP_VERSION_ID < 8_00_00 && $tokens->isTokenKindFound(T_NS_SEPARATOR);
+        return \PHP_VERSION_ID < 80000 && $tokens->isTokenKindFound(T_NS_SEPARATOR);
     }
 
     /**
      * {@inheritdoc}
-     *
-     * Must run before PhpUnitDataProviderReturnTypeFixer.
      */
-    public function getPriority(): int
-    {
-        return 3;
-    }
-
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $count = $tokens->count();

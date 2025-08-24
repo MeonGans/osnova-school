@@ -24,6 +24,9 @@ use PhpCsFixer\Tokenizer\Tokens;
 
 final class ControlStructureBracesFixer extends AbstractFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -32,6 +35,9 @@ final class ControlStructureBracesFixer extends AbstractFixer
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return true;
@@ -40,13 +46,16 @@ final class ControlStructureBracesFixer extends AbstractFixer
     /**
      * {@inheritdoc}
      *
-     * Must run before BracesPositionFixer, ControlStructureContinuationPositionFixer, CurlyBracesPositionFixer, NoMultipleStatementsPerLineFixer.
+     * Must run before ControlStructureContinuationPositionFixer, CurlyBracesPositionFixer, NoMultipleStatementsPerLineFixer.
      */
     public function getPriority(): int
     {
         return 1;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $alternativeSyntaxAnalyzer = new AlternativeSyntaxAnalyzer();
@@ -70,7 +79,7 @@ final class ControlStructureBracesFixer extends AbstractFixer
             $nextAfterParenthesisEndIndex = $tokens->getNextMeaningfulToken($parenthesisEndIndex);
             $tokenAfterParenthesis = $tokens[$nextAfterParenthesisEndIndex];
 
-            if ($tokenAfterParenthesis->equalsAny([';', '{', ':', [T_CLOSE_TAG]])) {
+            if ($tokenAfterParenthesis->equalsAny([';', '{', ':'])) {
                 continue;
             }
 
@@ -130,11 +139,11 @@ final class ControlStructureBracesFixer extends AbstractFixer
     private function findStatementEnd(Tokens $tokens, int $parenthesisEndIndex): int
     {
         $nextIndex = $tokens->getNextMeaningfulToken($parenthesisEndIndex);
-        if (null === $nextIndex) {
+        $nextToken = $tokens[$nextIndex];
+
+        if (!$nextToken) {
             return $parenthesisEndIndex;
         }
-
-        $nextToken = $tokens[$nextIndex];
 
         if ($nextToken->equals('{')) {
             return $tokens->findBlockEnd(Tokens::BLOCK_TYPE_CURLY_BRACE, $nextIndex);
@@ -150,12 +159,13 @@ final class ControlStructureBracesFixer extends AbstractFixer
 
                 while (true) {
                     $nextIndex = $tokens->getNextMeaningfulToken($endIndex);
-                    if (null !== $nextIndex && $tokens[$nextIndex]->isGivenKind($this->getControlContinuationTokensForOpeningToken($openingTokenKind))) {
+                    $nextToken = isset($nextIndex) ? $tokens[$nextIndex] : null;
+                    if ($nextToken && $nextToken->isGivenKind($this->getControlContinuationTokensForOpeningToken($openingTokenKind))) {
                         $parenthesisEndIndex = $this->findParenthesisEnd($tokens, $nextIndex);
 
                         $endIndex = $this->findStatementEnd($tokens, $parenthesisEndIndex);
 
-                        if ($tokens[$nextIndex]->isGivenKind($this->getFinalControlContinuationTokensForOpeningToken($openingTokenKind))) {
+                        if ($nextToken->isGivenKind($this->getFinalControlContinuationTokensForOpeningToken($openingTokenKind))) {
                             return $endIndex;
                         }
                     } else {

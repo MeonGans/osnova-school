@@ -211,7 +211,7 @@ abstract class File
      */
     public static function secureName($fileName, $disallowUnsafeCharacters = true, $forceAscii = false)
     {
-        $fileName = $fileName ? str_replace([':', '*', '?', '|', '/'], '_', $fileName) : '';
+        $fileName = str_replace([':', '*', '?', '|', '/'], '_', $fileName);
 
         if ($disallowUnsafeCharacters) {
             $fileName = str_replace(';', '_', $fileName);

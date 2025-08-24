@@ -20,9 +20,10 @@ use PhpCsFixer\Fixer\WhitespacesAwareFixerInterface;
 use PhpCsFixer\FixerConfiguration\FixerConfigurationResolver;
 use PhpCsFixer\FixerConfiguration\FixerConfigurationResolverInterface;
 use PhpCsFixer\FixerConfiguration\FixerOptionBuilder;
-use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
+use PhpCsFixer\FixerDefinition\VersionSpecification;
+use PhpCsFixer\FixerDefinition\VersionSpecificCodeSample;
 use PhpCsFixer\Preg;
 use PhpCsFixer\Tokenizer\Analyzer\WhitespacesAnalyzer;
 use PhpCsFixer\Tokenizer\Token;
@@ -33,36 +34,49 @@ use PhpCsFixer\Tokenizer\Tokens;
  */
 final class HeredocIndentationFixer extends AbstractFixer implements ConfigurableFixerInterface, WhitespacesAwareFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
-            'Heredoc/nowdoc content must be properly indented.',
+            'Heredoc/nowdoc content must be properly indented. Requires PHP >= 7.3.',
             [
-                new CodeSample(
+                new VersionSpecificCodeSample(
                     <<<'SAMPLE'
-                        <?php
-                            $heredoc = <<<EOD
-                        abc
-                            def
-                        EOD;
+<?php
+    $a = <<<EOD
+abc
+    def
+EOD;
 
-                            $nowdoc = <<<'EOD'
-                        abc
-                            def
-                        EOD;
-
-                        SAMPLE
-                ),
-                new CodeSample(
-                    <<<'SAMPLE'
-                        <?php
-                            $nowdoc = <<<'EOD'
-                        abc
-                            def
-                        EOD;
-
-                        SAMPLE
+SAMPLE
                     ,
+                    new VersionSpecification(70300)
+                ),
+                new VersionSpecificCodeSample(
+                    <<<'SAMPLE'
+<?php
+    $a = <<<'EOD'
+abc
+    def
+EOD;
+
+SAMPLE
+                    ,
+                    new VersionSpecification(70300)
+                ),
+                new VersionSpecificCodeSample(
+                    <<<'SAMPLE'
+<?php
+    $a = <<<'EOD'
+abc
+    def
+EOD;
+
+SAMPLE
+                    ,
+                    new VersionSpecification(70300),
                     ['indentation' => 'same_as_start']
                 ),
             ]
@@ -72,18 +86,24 @@ final class HeredocIndentationFixer extends AbstractFixer implements Configurabl
     /**
      * {@inheritdoc}
      *
-     * Must run after BracesFixer, MultilineStringToHeredocFixer, StatementIndentationFixer.
+     * Must run after BracesFixer, StatementIndentationFixer.
      */
     public function getPriority(): int
     {
         return -26;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_START_HEREDOC);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
@@ -127,9 +147,7 @@ final class HeredocIndentationFixer extends AbstractFixer implements Configurabl
             return;
         }
 
-        $index = $end - 1;
-
-        for ($last = true; $index > $start; --$index, $last = false) {
+        for ($index = $end - 1, $last = true; $index > $start; --$index, $last = false) {
             if (!$tokens[$index]->isGivenKind([T_ENCAPSED_AND_WHITESPACE, T_WHITESPACE])) {
                 continue;
             }
@@ -140,7 +158,7 @@ final class HeredocIndentationFixer extends AbstractFixer implements Configurabl
                 $content = Preg::replace('/(?<=\v)(?!'.$currentIndent.')\h+/', '', $content);
             }
 
-            $regexEnd = $last && '' === $currentIndent ? '(?!\v|$)' : '(?!\v)';
+            $regexEnd = $last && !$currentIndent ? '(?!\v|$)' : '(?!\v)';
             $content = Preg::replace('/(?<=\v)'.$currentIndent.$regexEnd.'/', $indent, $content);
 
             $tokens[$index] = new Token([$tokens[$index]->getId(), $content]);
@@ -156,9 +174,9 @@ final class HeredocIndentationFixer extends AbstractFixer implements Configurabl
 
         $content = $tokens[$index]->getContent();
 
-        if (!\in_array($content[0], ["\r", "\n"], true) && ('' === $currentIndent || str_starts_with($content, $currentIndent))) {
+        if (!\in_array($content[0], ["\r", "\n"], true) && (!$currentIndent || str_starts_with($content, $currentIndent))) {
             $content = $indent.substr($content, $currentIndentLength);
-        } elseif ('' !== $currentIndent) {
+        } elseif ($currentIndent) {
             $content = Preg::replace('/^(?!'.$currentIndent.')\h+/', '', $content);
         }
 

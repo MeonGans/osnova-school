@@ -25,6 +25,9 @@ use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
  */
 final class PhpdocNoAccessFixer extends AbstractProxyFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -57,6 +60,9 @@ class Foo
         return parent::getPriority();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createProxyFixers(): array
     {
         $fixer = new GeneralPhpdocAnnotationRemoveFixer();

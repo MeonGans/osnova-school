@@ -14,7 +14,6 @@ declare(strict_types=1);
 
 namespace PhpCsFixer\Console\Report\FixReport;
 
-use PhpCsFixer\Console\Application;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 
 /**
@@ -24,11 +23,17 @@ use Symfony\Component\Console\Formatter\OutputFormatter;
  */
 final class CheckstyleReporter implements ReporterInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getFormat(): string
     {
         return 'checkstyle';
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function generate(ReportSummary $reportSummary): string
     {
         if (!\extension_loaded('dom')) {
@@ -36,10 +41,7 @@ final class CheckstyleReporter implements ReporterInterface
         }
 
         $dom = new \DOMDocument('1.0', 'UTF-8');
-
-        /** @var \DOMElement $checkstyles */
         $checkstyles = $dom->appendChild($dom->createElement('checkstyle'));
-        $checkstyles->setAttribute('version', Application::getAbout());
 
         foreach ($reportSummary->getChanged() as $filePath => $fixResult) {
             /** @var \DOMElement $file */

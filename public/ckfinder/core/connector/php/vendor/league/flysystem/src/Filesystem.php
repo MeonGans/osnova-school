@@ -6,31 +6,36 @@ namespace League\Flysystem;
 
 use DateTimeInterface;
 use Generator;
+use League\Flysystem\UrlGeneration\ShardedPrefixPublicUrlGenerator;
 use League\Flysystem\UrlGeneration\PrefixPublicUrlGenerator;
 use League\Flysystem\UrlGeneration\PublicUrlGenerator;
-use League\Flysystem\UrlGeneration\ShardedPrefixPublicUrlGenerator;
 use League\Flysystem\UrlGeneration\TemporaryUrlGenerator;
 use Throwable;
 
-use function array_key_exists;
 use function is_array;
 
 class Filesystem implements FilesystemOperator
 {
     use CalculateChecksumFromStream;
 
+    private FilesystemAdapter $adapter;
     private Config $config;
     private PathNormalizer $pathNormalizer;
+    private ?PublicUrlGenerator $publicUrlGenerator;
+    private ?TemporaryUrlGenerator $temporaryUrlGenerator;
 
     public function __construct(
-        private FilesystemAdapter $adapter,
+        FilesystemAdapter $adapter,
         array $config = [],
-        ?PathNormalizer $pathNormalizer = null,
-        private ?PublicUrlGenerator $publicUrlGenerator = null,
-        private ?TemporaryUrlGenerator $temporaryUrlGenerator = null,
+        PathNormalizer $pathNormalizer = null,
+        PublicUrlGenerator $publicUrlGenerator = null,
+        TemporaryUrlGenerator $temporaryUrlGenerator = null,
     ) {
+        $this->adapter = $adapter;
         $this->config = new Config($config);
-        $this->pathNormalizer = $pathNormalizer ?? new WhitespacePathNormalizer();
+        $this->pathNormalizer = $pathNormalizer ?: new WhitespacePathNormalizer();
+        $this->publicUrlGenerator = $publicUrlGenerator;
+        $this->temporaryUrlGenerator = $temporaryUrlGenerator;
     }
 
     public function fileExists(string $location): bool
@@ -120,40 +125,20 @@ class Filesystem implements FilesystemOperator
 
     public function move(string $source, string $destination, array $config = []): void
     {
-        $config = $this->resolveConfigForMoveAndCopy($config);
-        $from = $this->pathNormalizer->normalizePath($source);
-        $to = $this->pathNormalizer->normalizePath($destination);
-
-        if ($from === $to) {
-            $resolutionStrategy = $config->get(Config::OPTION_MOVE_IDENTICAL_PATH, ResolveIdenticalPathConflict::TRY);
-
-            if ($resolutionStrategy === ResolveIdenticalPathConflict::FAIL) {
-                throw UnableToMoveFile::sourceAndDestinationAreTheSame($source, $destination);
-            } elseif ($resolutionStrategy === ResolveIdenticalPathConflict::IGNORE) {
-                return;
-            }
-        }
-
-        $this->adapter->move($from, $to, $config);
+        $this->adapter->move(
+            $this->pathNormalizer->normalizePath($source),
+            $this->pathNormalizer->normalizePath($destination),
+            $this->config->extend($config)
+        );
     }
 
     public function copy(string $source, string $destination, array $config = []): void
     {
-        $config = $this->resolveConfigForMoveAndCopy($config);
-        $from = $this->pathNormalizer->normalizePath($source);
-        $to = $this->pathNormalizer->normalizePath($destination);
-
-        if ($from === $to) {
-            $resolutionStrategy = $config->get(Config::OPTION_COPY_IDENTICAL_PATH, ResolveIdenticalPathConflict::TRY);
-
-            if ($resolutionStrategy === ResolveIdenticalPathConflict::FAIL) {
-                throw UnableToCopyFile::sourceAndDestinationAreTheSame($source, $destination);
-            } elseif ($resolutionStrategy === ResolveIdenticalPathConflict::IGNORE) {
-                return;
-            }
-        }
-
-        $this->adapter->copy($from, $to, $config);
+        $this->adapter->copy(
+            $this->pathNormalizer->normalizePath($source),
+            $this->pathNormalizer->normalizePath($destination),
+            $this->config->extend($config)
+        );
     }
 
     public function lastModified(string $path): int
@@ -184,22 +169,18 @@ class Filesystem implements FilesystemOperator
     public function publicUrl(string $path, array $config = []): string
     {
         $this->publicUrlGenerator ??= $this->resolvePublicUrlGenerator()
-            ?? throw UnableToGeneratePublicUrl::noGeneratorConfigured($path);
+            ?: throw UnableToGeneratePublicUrl::noGeneratorConfigured($path);
         $config = $this->config->extend($config);
 
-        return $this->publicUrlGenerator->publicUrl($this->pathNormalizer->normalizePath($path), $config);
+        return $this->publicUrlGenerator->publicUrl($path, $config);
     }
 
     public function temporaryUrl(string $path, DateTimeInterface $expiresAt, array $config = []): string
     {
-        $generator = $this->temporaryUrlGenerator ?? $this->adapter;
+        $generator = $this->temporaryUrlGenerator ?: $this->adapter;
 
         if ($generator instanceof TemporaryUrlGenerator) {
-            return $generator->temporaryUrl(
-                $this->pathNormalizer->normalizePath($path),
-                $expiresAt,
-                $this->config->extend($config)
-            );
+            return $generator->temporaryUrl($path, $expiresAt, $this->config->extend($config));
         }
 
         throw UnableToGenerateTemporaryUrl::noGeneratorConfigured($path);
@@ -260,22 +241,5 @@ class Filesystem implements FilesystemOperator
         if (ftell($resource) !== 0 && stream_get_meta_data($resource)['seekable']) {
             rewind($resource);
         }
-    }
-
-    private function resolveConfigForMoveAndCopy(array $config): Config
-    {
-        $retainVisibility = $this->config->get(Config::OPTION_RETAIN_VISIBILITY, $config[Config::OPTION_RETAIN_VISIBILITY] ?? true);
-        $fullConfig = $this->config->extend($config);
-
-        /*
-         * By default, we retain visibility. When we do not retain visibility, the visibility setting
-         * from the default configuration is ignored. Only when it is set explicitly, we propagate the
-         * setting.
-         */
-        if ($retainVisibility && ! array_key_exists(Config::OPTION_VISIBILITY, $config)) {
-            $fullConfig = $fullConfig->withoutSettings(Config::OPTION_VISIBILITY)->extend($config);
-        }
-
-        return $fullConfig;
     }
 }

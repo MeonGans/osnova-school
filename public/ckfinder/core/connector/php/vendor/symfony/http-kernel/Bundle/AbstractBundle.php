@@ -48,9 +48,12 @@ abstract class AbstractBundle extends Bundle implements ConfigurableExtensionInt
         return $this->extension ??= new BundleExtension($this, $this->extensionAlias);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getPath(): string
     {
-        if (!isset($this->path)) {
+        if (null === $this->path) {
             $reflected = new \ReflectionObject($this);
             // assume the modern directory structure by default
             $this->path = \dirname($reflected->getFileName(), 2);

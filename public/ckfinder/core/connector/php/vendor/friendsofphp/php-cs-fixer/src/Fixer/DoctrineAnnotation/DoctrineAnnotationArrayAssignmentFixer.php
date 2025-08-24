@@ -14,8 +14,8 @@ declare(strict_types=1);
 
 namespace PhpCsFixer\Fixer\DoctrineAnnotation;
 
+use Doctrine\Common\Annotations\DocLexer;
 use PhpCsFixer\AbstractDoctrineAnnotationFixer;
-use PhpCsFixer\Doctrine\Annotation\DocLexer;
 use PhpCsFixer\Doctrine\Annotation\Tokens;
 use PhpCsFixer\FixerConfiguration\FixerConfigurationResolver;
 use PhpCsFixer\FixerConfiguration\FixerConfigurationResolverInterface;
@@ -29,6 +29,9 @@ use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
  */
 final class DoctrineAnnotationArrayAssignmentFixer extends AbstractDoctrineAnnotationFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -55,6 +58,9 @@ final class DoctrineAnnotationArrayAssignmentFixer extends AbstractDoctrineAnnot
         return 1;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         $options = parent::createConfigurationDefinition()->getOptions();
@@ -69,6 +75,9 @@ final class DoctrineAnnotationArrayAssignmentFixer extends AbstractDoctrineAnnot
         return new FixerConfigurationResolver($options);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function fixAnnotations(Tokens $doctrineAnnotationTokens): void
     {
         $scopes = [];

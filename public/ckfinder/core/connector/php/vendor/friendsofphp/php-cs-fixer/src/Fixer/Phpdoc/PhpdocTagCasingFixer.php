@@ -28,6 +28,9 @@ use PhpCsFixer\Preg;
 
 final class PhpdocTagCasingFixer extends AbstractProxyFixer implements ConfigurableFixerInterface
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -80,6 +83,9 @@ final class PhpdocTagCasingFixer extends AbstractProxyFixer implements Configura
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
@@ -90,6 +96,9 @@ final class PhpdocTagCasingFixer extends AbstractProxyFixer implements Configura
         ]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createProxyFixers(): array
     {
         return [new GeneralPhpdocTagRenameFixer()];

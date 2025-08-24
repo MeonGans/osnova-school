@@ -35,6 +35,9 @@ final class DeclareEqualNormalizeFixer extends AbstractFixer implements Configur
      */
     private $callback;
 
+    /**
+     * {@inheritdoc}
+     */
     public function configure(array $configuration): void
     {
         parent::configure($configuration);
@@ -42,6 +45,9 @@ final class DeclareEqualNormalizeFixer extends AbstractFixer implements Configur
         $this->callback = 'none' === $this->configuration['space'] ? 'removeWhitespaceAroundToken' : 'ensureWhitespaceAroundToken';
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -63,11 +69,17 @@ final class DeclareEqualNormalizeFixer extends AbstractFixer implements Configur
         return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(T_DECLARE);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         $callback = $this->callback;
@@ -87,6 +99,9 @@ final class DeclareEqualNormalizeFixer extends AbstractFixer implements Configur
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([

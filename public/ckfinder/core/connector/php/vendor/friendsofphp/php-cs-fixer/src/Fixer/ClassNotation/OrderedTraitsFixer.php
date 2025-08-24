@@ -15,56 +15,48 @@ declare(strict_types=1);
 namespace PhpCsFixer\Fixer\ClassNotation;
 
 use PhpCsFixer\AbstractFixer;
-use PhpCsFixer\Fixer\ConfigurableFixerInterface;
-use PhpCsFixer\FixerConfiguration\FixerConfigurationResolver;
-use PhpCsFixer\FixerConfiguration\FixerConfigurationResolverInterface;
-use PhpCsFixer\FixerConfiguration\FixerOptionBuilder;
 use PhpCsFixer\FixerDefinition\CodeSample;
 use PhpCsFixer\FixerDefinition\FixerDefinition;
 use PhpCsFixer\FixerDefinition\FixerDefinitionInterface;
 use PhpCsFixer\Tokenizer\CT;
 use PhpCsFixer\Tokenizer\Tokens;
 
-final class OrderedTraitsFixer extends AbstractFixer implements ConfigurableFixerInterface
+final class OrderedTraitsFixer extends AbstractFixer
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
             'Trait `use` statements must be sorted alphabetically.',
             [
                 new CodeSample("<?php class Foo { \nuse Z; use A; }\n"),
-                new CodeSample(
-                    "<?php class Foo { \nuse Aaa; use AA; }\n",
-                    [
-                        'case_sensitive' => true,
-                    ]
-                ),
             ],
             null,
             'Risky when depending on order of the imports.'
         );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         return $tokens->isTokenKindFound(CT::T_USE_TRAIT);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isRisky(): bool
     {
         return true;
     }
 
-    protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
-    {
-        return new FixerConfigurationResolver([
-            (new FixerOptionBuilder('case_sensitive', 'Whether the sorting should be case sensitive.'))
-                ->setAllowedTypes(['bool'])
-                ->setDefault(false)
-                ->getOption(),
-        ]);
-    }
-
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         foreach ($this->findUseStatementsGroups($tokens) as $uses) {
@@ -183,19 +175,14 @@ final class OrderedTraitsFixer extends AbstractFixer implements ConfigurableFixe
         };
 
         $sortedElements = $elements;
-        uasort(
-            $sortedElements,
-            fn (Tokens $useA, Tokens $useB): int => true === $this->configuration['case_sensitive']
-                ? $toTraitName($useA) <=> $toTraitName($useB)
-                : strcasecmp($toTraitName($useA), $toTraitName($useB))
-        );
+        uasort($sortedElements, static function (Tokens $useA, Tokens $useB) use ($toTraitName): int {
+            return strcasecmp($toTraitName($useA), $toTraitName($useB));
+        });
 
         $sortedElements = array_combine(
             array_keys($elements),
             array_values($sortedElements)
         );
-
-        $beforeOverrideCount = $tokens->count();
 
         foreach (array_reverse($sortedElements, true) as $index => $tokensToInsert) {
             $tokens->overrideRange(
@@ -203,10 +190,6 @@ final class OrderedTraitsFixer extends AbstractFixer implements ConfigurableFixe
                 $index + \count($elements[$index]) - 1,
                 $tokensToInsert
             );
-        }
-
-        if ($beforeOverrideCount < $tokens->count()) {
-            $tokens->clearEmptyTokens();
         }
     }
 }

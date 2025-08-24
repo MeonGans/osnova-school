@@ -61,15 +61,19 @@ final class EchoTagSyntaxFixer extends AbstractFixer implements ConfigurableFixe
         self::LONG_FUNCTION_PRINT,
     ];
 
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         $sample = <<<'EOT'
-            <?=1?>
-            <?php print '2' . '3'; ?>
-            <?php /* comment */ echo '2' . '3'; ?>
-            <?php print '2' . '3'; someFunction(); ?>
+<?=1?>
+<?php print '2' . '3'; ?>
+<?php /* comment */ echo '2' . '3'; ?>
+<?php print '2' . '3'; someFunction(); ?>
 
-            EOT;
+EOT
+        ;
 
         return new FixerDefinition(
             'Replaces short-echo `<?=` with long format `<?php echo`/`<?php print` syntax, or vice-versa.',
@@ -94,6 +98,9 @@ final class EchoTagSyntaxFixer extends AbstractFixer implements ConfigurableFixe
         return 0;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         if (self::FORMAT_SHORT === $this->configuration[self::OPTION_FORMAT]) {
@@ -103,6 +110,9 @@ final class EchoTagSyntaxFixer extends AbstractFixer implements ConfigurableFixe
         return $tokens->isTokenKindFound(T_OPEN_TAG_WITH_ECHO);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function createConfigurationDefinition(): FixerConfigurationResolverInterface
     {
         return new FixerConfigurationResolver([
@@ -110,17 +120,20 @@ final class EchoTagSyntaxFixer extends AbstractFixer implements ConfigurableFixe
                 ->setAllowedValues(self::SUPPORTED_FORMAT_OPTIONS)
                 ->setDefault(self::FORMAT_LONG)
                 ->getOption(),
-            (new FixerOptionBuilder(self::OPTION_LONG_FUNCTION, 'The function to be used to expand the short echo tags.'))
+            (new FixerOptionBuilder(self::OPTION_LONG_FUNCTION, 'The function to be used to expand the short echo tags'))
                 ->setAllowedValues(self::SUPPORTED_LONGFUNCTION_OPTIONS)
                 ->setDefault(self::LONG_FUNCTION_ECHO)
                 ->getOption(),
-            (new FixerOptionBuilder(self::OPTION_SHORTEN_SIMPLE_STATEMENTS_ONLY, 'Render short-echo tags only in case of simple code.'))
+            (new FixerOptionBuilder(self::OPTION_SHORTEN_SIMPLE_STATEMENTS_ONLY, 'Render short-echo tags only in case of simple code'))
                 ->setAllowedTypes(['bool'])
                 ->setDefault(true)
                 ->getOption(),
         ]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         if (self::FORMAT_SHORT === $this->configuration[self::OPTION_FORMAT]) {
@@ -226,7 +239,7 @@ final class EchoTagSyntaxFixer extends AbstractFixer implements ConfigurableFixe
     /**
      * Builds the list of tokens that replace a long echo sequence.
      *
-     * @return list<Token>
+     * @return Token[]
      */
     private function buildLongToShortTokens(Tokens $tokens, int $openTagIndex, int $echoTagIndex): array
     {

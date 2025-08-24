@@ -39,6 +39,9 @@ abstract class AbstractProxyFixer extends AbstractFixer
         parent::__construct();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         foreach ($this->proxyFixers as $fixer) {
@@ -50,6 +53,9 @@ abstract class AbstractProxyFixer extends AbstractFixer
         return false;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isRisky(): bool
     {
         foreach ($this->proxyFixers as $fixer) {
@@ -61,6 +67,9 @@ abstract class AbstractProxyFixer extends AbstractFixer
         return false;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getPriority(): int
     {
         if (\count($this->proxyFixers) > 1) {
@@ -70,6 +79,9 @@ abstract class AbstractProxyFixer extends AbstractFixer
         return reset($this->proxyFixers)->getPriority();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function supports(\SplFileInfo $file): bool
     {
         foreach ($this->proxyFixers as $fixer) {
@@ -81,6 +93,9 @@ abstract class AbstractProxyFixer extends AbstractFixer
         return false;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function setWhitespacesConfig(WhitespacesFixerConfig $config): void
     {
         parent::setWhitespacesConfig($config);
@@ -92,6 +107,9 @@ abstract class AbstractProxyFixer extends AbstractFixer
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
         foreach ($this->proxyFixers as $fixer) {

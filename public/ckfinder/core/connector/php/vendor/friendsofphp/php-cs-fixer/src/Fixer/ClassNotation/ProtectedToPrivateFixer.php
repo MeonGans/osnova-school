@@ -28,8 +28,9 @@ use PhpCsFixer\Tokenizer\TokensAnalyzer;
  */
 final class ProtectedToPrivateFixer extends AbstractFixer
 {
-    private TokensAnalyzer $tokensAnalyzer;
-
+    /**
+     * {@inheritdoc}
+     */
     public function getDefinition(): FixerDefinitionInterface
     {
         return new FixerDefinition(
@@ -55,13 +56,16 @@ final class Sample
      * {@inheritdoc}
      *
      * Must run before OrderedClassElementsFixer.
-     * Must run after FinalClassFixer, FinalInternalClassFixer.
+     * Must run after FinalInternalClassFixer.
      */
     public function getPriority(): int
     {
         return 66;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isCandidate(Tokens $tokens): bool
     {
         if (\defined('T_ENUM') && $tokens->isAllTokenKindsFound([T_ENUM, T_PROTECTED])) { // @TODO: drop condition when PHP 8.1+ is required
@@ -71,9 +75,12 @@ final class Sample
         return $tokens->isAllTokenKindsFound([T_CLASS, T_FINAL, T_PROTECTED]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function applyFix(\SplFileInfo $file, Tokens $tokens): void
     {
-        $this->tokensAnalyzer = new TokensAnalyzer($tokens);
+        $tokensAnalyzer = new TokensAnalyzer($tokens);
         $modifierKinds = [T_PUBLIC, T_PROTECTED, T_PRIVATE, T_FINAL, T_ABSTRACT, T_NS_SEPARATOR, T_STRING, CT::T_NULLABLE_TYPE, CT::T_ARRAY_TYPEHINT, T_STATIC, CT::T_TYPE_ALTERNATION, CT::T_TYPE_INTERSECTION];
 
         if (\defined('T_READONLY')) { // @TODO: drop condition when PHP 8.1+ is required
@@ -83,7 +90,7 @@ final class Sample
         $classesCandidate = [];
         $classElementTypes = ['method' => true, 'property' => true, 'const' => true];
 
-        foreach ($this->tokensAnalyzer->getClassyElements() as $index => $element) {
+        foreach ($tokensAnalyzer->getClassyElements() as $index => $element) {
             $classIndex = $element['classIndex'];
 
             if (!\array_key_exists($classIndex, $classesCandidate)) {
@@ -91,7 +98,7 @@ final class Sample
             }
 
             if (false === $classesCandidate[$classIndex]) {
-                continue;
+                continue; // not "final" class, "extends", is "anonymous", enum or uses trait
             }
 
             if (!isset($classElementTypes[$element['type']])) {
@@ -125,28 +132,15 @@ final class Sample
         }
     }
 
-    /**
-     * Consider symbol as candidate for fixing if it's:
-     *   - an Enum (PHP8.1+)
-     *   - a class, which:
-     *     - is not anonymous
-     *     - is not final
-     *     - does not use traits
-     *     - does not extend other class.
-     */
     private function isClassCandidate(Tokens $tokens, int $classIndex): bool
     {
         if (\defined('T_ENUM') && $tokens[$classIndex]->isGivenKind(T_ENUM)) { // @TODO: drop condition when PHP 8.1+ is required
             return true;
         }
 
-        if (!$tokens[$classIndex]->isGivenKind(T_CLASS) || $this->tokensAnalyzer->isAnonymousClass($classIndex)) {
-            return false;
-        }
+        $prevToken = $tokens[$tokens->getPrevMeaningfulToken($classIndex)];
 
-        $modifiers = $this->tokensAnalyzer->getClassyModifiers($classIndex);
-
-        if (!isset($modifiers['final'])) {
+        if (!$prevToken->isGivenKind(T_FINAL)) {
             return false;
         }
 
